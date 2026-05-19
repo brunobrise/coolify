@@ -157,16 +157,10 @@ class All extends Component
 
     private function formatEnvironmentVariables($variables)
     {
-        return $variables->map(function ($item) {
-            if ($item->is_shown_once) {
-                return "$item->key=(Locked Secret, delete and add again to change)";
-            }
-            if ($item->is_multiline) {
-                return "$item->key=(Multiline environment variable, edit in normal view)";
-            }
-
-            return "$item->key=$item->value";
-        })->join("\n");
+        return $this->formatEnvironmentVariablesForDisplay(
+            $variables,
+            auth()->user()?->can('manageEnvironment', $this->resource) ?? false,
+        );
     }
 
     public function switch()

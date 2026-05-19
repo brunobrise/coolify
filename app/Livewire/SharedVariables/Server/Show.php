@@ -3,13 +3,14 @@
 namespace App\Livewire\SharedVariables\Server;
 
 use App\Models\Server;
+use App\Traits\EnvironmentVariableProtection;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Show extends Component
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, EnvironmentVariableProtection;
 
     public Server $server;
 
@@ -75,16 +76,10 @@ class Show extends Component
 
     private function formatEnvironmentVariables($variables)
     {
-        return $variables->map(function ($item) {
-            if ($item->is_shown_once) {
-                return "$item->key=(Locked Secret, delete and add again to change)";
-            }
-            if ($item->is_multiline) {
-                return "$item->key=(Multiline environment variable, edit in normal view)";
-            }
-
-            return "$item->key=$item->value";
-        })->join("\n");
+        return $this->formatEnvironmentVariablesForDisplay(
+            $variables,
+            auth()->user()?->can('update', $this->server) ?? false,
+        );
     }
 
     public function submit()

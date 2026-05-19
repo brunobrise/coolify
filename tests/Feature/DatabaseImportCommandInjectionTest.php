@@ -2,6 +2,7 @@
 
 use App\Livewire\Project\Database\Import;
 use App\Support\ValidationPatterns;
+use Livewire\Attributes\Locked;
 
 describe('container name validation', function () {
     test('isValidContainerName accepts valid container names', function () {
@@ -46,42 +47,42 @@ describe('container name validation', function () {
 describe('locked properties', function () {
     test('container property has Locked attribute', function () {
         $property = new ReflectionProperty(Import::class, 'container');
-        $attributes = $property->getAttributes(\Livewire\Attributes\Locked::class);
+        $attributes = $property->getAttributes(Locked::class);
 
         expect($attributes)->not->toBeEmpty();
     });
 
     test('serverId property has Locked attribute', function () {
         $property = new ReflectionProperty(Import::class, 'serverId');
-        $attributes = $property->getAttributes(\Livewire\Attributes\Locked::class);
+        $attributes = $property->getAttributes(Locked::class);
 
         expect($attributes)->not->toBeEmpty();
     });
 
     test('resourceId property has Locked attribute', function () {
         $property = new ReflectionProperty(Import::class, 'resourceId');
-        $attributes = $property->getAttributes(\Livewire\Attributes\Locked::class);
+        $attributes = $property->getAttributes(Locked::class);
 
         expect($attributes)->not->toBeEmpty();
     });
 
     test('resourceType property has Locked attribute', function () {
         $property = new ReflectionProperty(Import::class, 'resourceType');
-        $attributes = $property->getAttributes(\Livewire\Attributes\Locked::class);
+        $attributes = $property->getAttributes(Locked::class);
 
         expect($attributes)->not->toBeEmpty();
     });
 
     test('resourceUuid property has Locked attribute', function () {
         $property = new ReflectionProperty(Import::class, 'resourceUuid');
-        $attributes = $property->getAttributes(\Livewire\Attributes\Locked::class);
+        $attributes = $property->getAttributes(Locked::class);
 
         expect($attributes)->not->toBeEmpty();
     });
 
     test('resourceDbType property has Locked attribute', function () {
         $property = new ReflectionProperty(Import::class, 'resourceDbType');
-        $attributes = $property->getAttributes(\Livewire\Attributes\Locked::class);
+        $attributes = $property->getAttributes(Locked::class);
 
         expect($attributes)->not->toBeEmpty();
     });
@@ -121,5 +122,16 @@ describe('Import component uses shared ValidationPatterns', function () {
         $methodBody = implode('', $lines);
 
         expect($methodBody)->toContain('ValidationPatterns::isValidContainerName');
+    });
+});
+
+describe('restore script file writes', function () {
+    test('database import writes restore scripts through quoted base64 helper', function () {
+        $source = file_get_contents(__DIR__.'/../../app/Livewire/Project/Database/Import.php');
+
+        expect($source)
+            ->not->toContain('echo '.escapeshellarg('$restoreCommandBase64').' | base64 -d')
+            ->not->toContain('| base64 -d >')
+            ->toContain('writeBase64FileCommand($scriptPath, $restoreCommandBase64)');
     });
 });

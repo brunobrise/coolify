@@ -42,6 +42,11 @@ class KubernetesCluster extends BaseModel
         'pod_disruption_budget_min_available',
     ];
 
+    protected $hidden = [
+        'kubeconfig',
+        'kubeconfig_path',
+    ];
+
     protected function casts(): array
     {
         return [

@@ -1276,7 +1276,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
         ];
 
         if (filled($cluster->kubeconfig)) {
-            $commands[] = ['command' => $builder->writeKubeconfig($cluster->storedKubeconfigPath(), $cluster->kubeconfig), 'hidden' => true];
+            $commands[] = ['command' => $builder->writeKubeconfig($cluster->storedKubeconfigPath(), $cluster->kubeconfig), 'hidden' => true, 'command_hidden' => true];
             $kubeconfigPath = $cluster->storedKubeconfigPath();
         }
 
@@ -1290,8 +1290,8 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
             ...array_merge($commands, [
                 ...collect($deploymentNames)
                     ->flatMap(fn (string $deploymentName) => [
-                        ['command' => $builder->rolloutRestart($cluster, $deploymentName, $kubeconfigPath), 'type' => 'stdout'],
-                        ['command' => $builder->rolloutStatus($cluster, $deploymentName, $this->timeout, $kubeconfigPath), 'type' => 'stdout'],
+                        ['command' => $builder->rolloutRestart($cluster, $deploymentName, $kubeconfigPath), 'type' => 'stdout', 'command_hidden' => true],
+                        ['command' => $builder->rolloutStatus($cluster, $deploymentName, $this->timeout, $kubeconfigPath), 'type' => 'stdout', 'command_hidden' => true],
                     ])
                     ->toArray(),
             ])
@@ -2072,11 +2072,11 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
         $commands = [
             ['command' => 'mkdir -p '.escapeshellarg($manifestDirectory), 'hidden' => true],
             ['command' => 'mkdir -p '.escapeshellarg($cluster->configurationDirectory()), 'hidden' => true],
-            ['command' => $builder->writeManifest($manifestPath, $manifestYaml), 'hidden' => true],
+            ['command' => $builder->writeManifest($manifestPath, $manifestYaml), 'hidden' => true, 'command_hidden' => true],
         ];
 
         if (filled($cluster->kubeconfig)) {
-            $commands[] = ['command' => $builder->writeKubeconfig($cluster->storedKubeconfigPath(), $cluster->kubeconfig), 'hidden' => true];
+            $commands[] = ['command' => $builder->writeKubeconfig($cluster->storedKubeconfigPath(), $cluster->kubeconfig), 'hidden' => true, 'command_hidden' => true];
             $kubeconfigPath = $cluster->storedKubeconfigPath();
         }
 
@@ -2092,11 +2092,11 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
 
         $this->execute_remote_command(
             ...array_merge($commands, [
-                ['command' => $builder->version($cluster, $kubeconfigPath), 'hidden' => true],
-                ['command' => $builder->serverSideDryRun($cluster, $manifestPath, $kubeconfigPath), 'hidden' => true],
-                ['command' => $builder->apply($cluster, $manifestPath, $kubeconfigPath), 'type' => 'stdout'],
+                ['command' => $builder->version($cluster, $kubeconfigPath), 'hidden' => true, 'command_hidden' => true],
+                ['command' => $builder->serverSideDryRun($cluster, $manifestPath, $kubeconfigPath), 'hidden' => true, 'command_hidden' => true],
+                ['command' => $builder->apply($cluster, $manifestPath, $kubeconfigPath), 'type' => 'stdout', 'command_hidden' => true],
                 ...collect($deploymentNames)
-                    ->map(fn (string $deploymentName) => ['command' => $builder->rolloutStatus($cluster, $deploymentName, $this->timeout, $kubeconfigPath), 'type' => 'stdout'])
+                    ->map(fn (string $deploymentName) => ['command' => $builder->rolloutStatus($cluster, $deploymentName, $this->timeout, $kubeconfigPath), 'type' => 'stdout', 'command_hidden' => true])
                     ->toArray(),
             ])
         );

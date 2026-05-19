@@ -91,7 +91,7 @@ trait ExecuteRemoteCommand
             // Check for cancellation before executing commands
             if (isset($this->application_deployment_queue)) {
                 $this->application_deployment_queue->refresh();
-                if ($this->application_deployment_queue->status === \App\Enums\ApplicationDeploymentStatus::CANCELLED_BY_USER->value) {
+                if ($this->application_deployment_queue->status === ApplicationDeploymentStatus::CANCELLED_BY_USER->value) {
                     throw new \RuntimeException('Deployment cancelled by user', 69420);
                 }
             }
@@ -119,7 +119,7 @@ trait ExecuteRemoteCommand
 
                             // Check for cancellation during retry wait
                             $this->application_deployment_queue->refresh();
-                            if ($this->application_deployment_queue->status === \App\Enums\ApplicationDeploymentStatus::CANCELLED_BY_USER->value) {
+                            if ($this->application_deployment_queue->status === ApplicationDeploymentStatus::CANCELLED_BY_USER->value) {
                                 throw new \RuntimeException('Deployment cancelled by user during retry', 69420);
                             }
                         }
@@ -227,7 +227,7 @@ trait ExecuteRemoteCommand
                 // Check if deployment was cancelled while command was running
                 if (isset($this->application_deployment_queue)) {
                     $this->application_deployment_queue->refresh();
-                    if ($this->application_deployment_queue->status === \App\Enums\ApplicationDeploymentStatus::CANCELLED_BY_USER->value) {
+                    if ($this->application_deployment_queue->status === ApplicationDeploymentStatus::CANCELLED_BY_USER->value) {
                         throw new \RuntimeException('Deployment cancelled by user', 69420);
                     }
                 }
@@ -238,10 +238,19 @@ trait ExecuteRemoteCommand
                 if (empty($error)) {
                     $error = $process_result->output() ?: 'Command failed with no error output';
                 }
-                $redactedCommand = $this->redact_sensitive_info($command);
+                $redactedCommand = $this->commandForFailureMessage($command, $command_hidden);
                 throw new DeploymentException("Command execution failed (exit code {$process_result->exitCode()}): {$redactedCommand}\nError: {$error}");
             }
         }
+    }
+
+    private function commandForFailureMessage(string $command, bool $commandHidden): string
+    {
+        if ($commandHidden) {
+            return '[hidden command]';
+        }
+
+        return $this->redact_sensitive_info($command);
     }
 
     /**

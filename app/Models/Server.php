@@ -1538,7 +1538,12 @@ $schema://$host {
                 validityDays: 10 * 365
             );
             $caCertificate = $this->sslCertificates()->where('is_ca_certificate', true)->first();
-            ray('CA certificate generated', $caCertificate);
+            ray('CA certificate generated', [
+                'id' => $caCertificate?->id,
+                'server_id' => $caCertificate?->server_id,
+                'common_name' => $caCertificate?->common_name,
+                'valid_until' => $caCertificate?->valid_until?->toISOString(),
+            ]);
             if ($caCertificate) {
                 $certificateContent = $caCertificate->ssl_certificate;
                 $caCertPath = config('constants.coolify.base_config_path').'/ssl/';

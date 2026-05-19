@@ -102,8 +102,8 @@ class StopDatabase
     {
         $server = $database->destination->server;
         instant_remote_process(command: [
-            "docker stop -t $timeout $containerName",
-            "docker rm -f $containerName",
+            dockerStopContainersCommand([$containerName], $timeout),
+            dockerRemoveContainerCommand($containerName),
         ], server: $server, throwError: false);
     }
 }

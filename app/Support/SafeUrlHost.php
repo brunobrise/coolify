@@ -26,6 +26,11 @@ class SafeUrlHost
             return [$host];
         }
 
+        $obfuscatedIpv4 = self::parseObfuscatedIpv4($host);
+        if ($obfuscatedIpv4 !== null) {
+            return [$obfuscatedIpv4];
+        }
+
         $records = @dns_get_record($host, DNS_A + DNS_AAAA) ?: [];
 
         return collect($records)
@@ -111,6 +116,54 @@ class SafeUrlHost
     private static function withoutIpv6Zone(string $ip): string
     {
         return str($ip)->before('%')->value();
+    }
+
+    private static function parseObfuscatedIpv4(string $host): ?string
+    {
+        $parts = explode('.', $host);
+        if (count($parts) > 4) {
+            return null;
+        }
+
+        $numbers = [];
+        foreach ($parts as $part) {
+            $number = self::parseIpv4Number($part);
+            if ($number === null) {
+                return null;
+            }
+
+            $numbers[] = $number;
+        }
+
+        $value = match (count($numbers)) {
+            1 => $numbers[0] <= 0xFFFFFFFF ? $numbers[0] : null,
+            2 => $numbers[0] <= 0xFF && $numbers[1] <= 0xFFFFFF ? ($numbers[0] << 24) | $numbers[1] : null,
+            3 => $numbers[0] <= 0xFF && $numbers[1] <= 0xFF && $numbers[2] <= 0xFFFF ? ($numbers[0] << 24) | ($numbers[1] << 16) | $numbers[2] : null,
+            4 => collect($numbers)->every(fn (int $number) => $number <= 0xFF) ? ($numbers[0] << 24) | ($numbers[1] << 16) | ($numbers[2] << 8) | $numbers[3] : null,
+        };
+
+        return $value === null ? null : long2ip($value);
+    }
+
+    private static function parseIpv4Number(string $part): ?int
+    {
+        if ($part === '') {
+            return null;
+        }
+
+        if (preg_match('/^0x[0-9a-f]+$/i', $part) === 1) {
+            return hexdec(substr($part, 2));
+        }
+
+        if (preg_match('/^0[0-7]+$/', $part) === 1) {
+            return intval($part, 8);
+        }
+
+        if (preg_match('/^[0-9]+$/', $part) === 1) {
+            return (int) $part;
+        }
+
+        return null;
     }
 
     private static function ipv4InRange(int $ip, string $network, int $cidr): bool

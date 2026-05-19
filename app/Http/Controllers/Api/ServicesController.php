@@ -26,9 +26,16 @@ class ServicesController extends Controller
     {
         $service->makeHidden([
             'id',
+            'applications',
+            'databases',
+            'destination',
+            'environment',
             'resourceable',
             'resourceable_id',
             'resourceable_type',
+            'server',
+            'serviceApplications',
+            'serviceDatabases',
         ]);
         if (request()->attributes->get('can_read_sensitive', false) === false) {
             $service->makeHidden([

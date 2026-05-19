@@ -37,9 +37,16 @@ class ApplicationsController extends Controller
     {
         $application->makeHidden([
             'id',
+            'additional_servers',
+            'destination',
+            'environment',
+            'environmentVariables',
             'resourceable',
             'resourceable_id',
             'resourceable_type',
+            'server',
+            'source',
+            'tags',
         ]);
         if (request()->attributes->get('can_read_sensitive', false) === false) {
             $application->makeHidden([

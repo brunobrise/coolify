@@ -42,7 +42,7 @@ class SendMessageToPushoverJob implements ShouldBeEncrypted, ShouldQueue
      */
     public function handle(): void
     {
-        $response = Http::post('https://api.pushover.net/1/messages.json', $this->message->toPayload($this->token, $this->user));
+        $response = Http::timeout(10)->withoutRedirecting()->post('https://api.pushover.net/1/messages.json', $this->message->toPayload($this->token, $this->user));
         if ($response->failed()) {
             throw new \RuntimeException('Pushover notification failed with '.$response->status().' status code.'.$response->body());
         }

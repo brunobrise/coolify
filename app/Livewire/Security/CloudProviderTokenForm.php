@@ -50,7 +50,11 @@ class CloudProviderTokenForm extends Component
                 $response = Http::withHeaders([
                     'Authorization' => 'Bearer '.$token,
                 ])->timeout(10)->get('https://api.hetzner.cloud/v1/servers');
-                ray($response);
+                ray('Cloud provider token validation response', [
+                    'provider' => $provider,
+                    'status' => $response->status(),
+                    'successful' => $response->successful(),
+                ]);
 
                 return $response->successful();
             }

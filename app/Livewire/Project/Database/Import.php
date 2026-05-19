@@ -5,6 +5,15 @@ namespace App\Livewire\Project\Database;
 use App\Models\S3Storage;
 use App\Models\Server;
 use App\Models\Service;
+use App\Models\ServiceDatabase;
+use App\Models\StandaloneClickhouse;
+use App\Models\StandaloneDragonfly;
+use App\Models\StandaloneKeydb;
+use App\Models\StandaloneMariadb;
+use App\Models\StandaloneMongodb;
+use App\Models\StandaloneMysql;
+use App\Models\StandalonePostgresql;
+use App\Models\StandaloneRedis;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
@@ -16,6 +25,29 @@ use Livewire\Component;
 class Import extends Component
 {
     use AuthorizesRequests;
+
+    private const POSTGRESQL_RESTORE_COMMAND = 'pg_restore -U ${POSTGRES_USER} -d ${POSTGRES_DB:-${POSTGRES_USER:-postgres}}';
+
+    private const LEGACY_POSTGRESQL_RESTORE_COMMAND = 'pg_restore -U $POSTGRES_USER -d $POSTGRES_DB';
+
+    private const MYSQL_RESTORE_COMMAND = 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE';
+
+    private const MARIADB_RESTORE_COMMAND = 'mariadb -u $MARIADB_USER -p$MARIADB_PASSWORD $MARIADB_DATABASE';
+
+    private const MONGODB_RESTORE_COMMAND = 'mongorestore --authenticationDatabase=admin --username $MONGO_INITDB_ROOT_USERNAME --password $MONGO_INITDB_ROOT_PASSWORD --uri mongodb://localhost:27017 --gzip --archive=';
+
+    private const ALLOWED_POSTGRESQL_RESTORE_FLAGS = [
+        '--clean',
+        '--data-only',
+        '--disable-triggers',
+        '--exit-on-error',
+        '--if-exists',
+        '--no-acl',
+        '--no-owner',
+        '--schema-only',
+        '--single-transaction',
+        '--verbose',
+    ];
 
     /**
      * Validate that a string is safe for use as an S3 bucket name.
@@ -155,13 +187,13 @@ class Import extends Component
 
     public ?int $activityId = null;
 
-    public string $postgresqlRestoreCommand = 'pg_restore -U $POSTGRES_USER -d ${POSTGRES_DB:-${POSTGRES_USER:-postgres}}';
+    public string $postgresqlRestoreCommand = self::POSTGRESQL_RESTORE_COMMAND;
 
-    public string $mysqlRestoreCommand = 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE';
+    public string $mysqlRestoreCommand = self::MYSQL_RESTORE_COMMAND;
 
-    public string $mariadbRestoreCommand = 'mariadb -u $MARIADB_USER -p$MARIADB_PASSWORD $MARIADB_DATABASE';
+    public string $mariadbRestoreCommand = self::MARIADB_RESTORE_COMMAND;
 
-    public string $mongodbRestoreCommand = 'mongorestore --authenticationDatabase=admin --username $MONGO_INITDB_ROOT_USERNAME --password $MONGO_INITDB_ROOT_PASSWORD --uri mongodb://localhost:27017 --gzip --archive=';
+    public string $mongodbRestoreCommand = self::MONGODB_RESTORE_COMMAND;
 
     // S3 Restore properties
     public array $availableS3Storages = [];
@@ -219,7 +251,7 @@ class Import extends Component
         $morphClass = $this->resource->getMorphClass();
 
         // Handle ServiceDatabase by checking the database type
-        if ($morphClass === \App\Models\ServiceDatabase::class) {
+        if ($morphClass === ServiceDatabase::class) {
             $dbType = $this->resource->databaseType();
             if (str_contains($dbType, 'mysql')) {
                 $morphClass = 'mysql';
@@ -231,49 +263,31 @@ class Import extends Component
         }
 
         switch ($morphClass) {
-            case \App\Models\StandaloneMariadb::class:
+            case StandaloneMariadb::class:
             case 'mariadb':
                 if ($value === true) {
-                    $this->mariadbRestoreCommand = <<<'EOD'
-for pid in $(mariadb -u root -p$MARIADB_ROOT_PASSWORD -N -e "SELECT id FROM information_schema.processlist WHERE user != 'root';"); do
-  mariadb -u root -p$MARIADB_ROOT_PASSWORD -e "KILL $pid" 2>/dev/null || true
-done && \
-mariadb -u root -p$MARIADB_ROOT_PASSWORD -N -e "SELECT CONCAT('DROP DATABASE IF EXISTS \`',schema_name,'\`;') FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema','mysql','performance_schema','sys');" | mariadb -u root -p$MARIADB_ROOT_PASSWORD && \
-mariadb -u root -p$MARIADB_ROOT_PASSWORD -e "CREATE DATABASE IF NOT EXISTS \`${MARIADB_DATABASE:-default}\`;" && \
-(gunzip -cf $tmpPath 2>/dev/null || cat $tmpPath) | sed -e '/^CREATE DATABASE/d' -e '/^USE \`mysql\`/d' | mariadb -u root -p$MARIADB_ROOT_PASSWORD ${MARIADB_DATABASE:-default}
-EOD;
+                    $this->mariadbRestoreCommand = $this->mariadbDumpAllRestoreCommand();
                     $this->restoreCommandText = $this->mariadbRestoreCommand.' && (gunzip -cf <temp_backup_file> 2>/dev/null || cat <temp_backup_file>) | mariadb -u root -p$MARIADB_ROOT_PASSWORD ${MARIADB_DATABASE:-default}';
                 } else {
-                    $this->mariadbRestoreCommand = 'mariadb -u $MARIADB_USER -p$MARIADB_PASSWORD $MARIADB_DATABASE';
+                    $this->mariadbRestoreCommand = self::MARIADB_RESTORE_COMMAND;
                 }
                 break;
-            case \App\Models\StandaloneMysql::class:
+            case StandaloneMysql::class:
             case 'mysql':
                 if ($value === true) {
-                    $this->mysqlRestoreCommand = <<<'EOD'
-for pid in $(mysql -u root -p$MYSQL_ROOT_PASSWORD -N -e "SELECT id FROM information_schema.processlist WHERE user != 'root';"); do
-  mysql -u root -p$MYSQL_ROOT_PASSWORD -e "KILL $pid" 2>/dev/null || true
-done && \
-mysql -u root -p$MYSQL_ROOT_PASSWORD -N -e "SELECT CONCAT('DROP DATABASE IF EXISTS \`',schema_name,'\`;') FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema','mysql','performance_schema','sys');" | mysql -u root -p$MYSQL_ROOT_PASSWORD && \
-mysql -u root -p$MYSQL_ROOT_PASSWORD -e "CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE:-default}\`;" && \
-(gunzip -cf $tmpPath 2>/dev/null || cat $tmpPath) | sed -e '/^CREATE DATABASE/d' -e '/^USE \`mysql\`/d' | mysql -u root -p$MYSQL_ROOT_PASSWORD ${MYSQL_DATABASE:-default}
-EOD;
+                    $this->mysqlRestoreCommand = $this->mysqlDumpAllRestoreCommand();
                     $this->restoreCommandText = $this->mysqlRestoreCommand.' && (gunzip -cf <temp_backup_file> 2>/dev/null || cat <temp_backup_file>) | mysql -u root -p$MYSQL_ROOT_PASSWORD ${MYSQL_DATABASE:-default}';
                 } else {
-                    $this->mysqlRestoreCommand = 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE';
+                    $this->mysqlRestoreCommand = self::MYSQL_RESTORE_COMMAND;
                 }
                 break;
-            case \App\Models\StandalonePostgresql::class:
+            case StandalonePostgresql::class:
             case 'postgresql':
                 if ($value === true) {
-                    $this->postgresqlRestoreCommand = <<<'EOD'
-psql -U ${POSTGRES_USER} -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname IS NOT NULL AND pid <> pg_backend_pid()" && \
-psql -U ${POSTGRES_USER} -t -c "SELECT datname FROM pg_database WHERE NOT datistemplate" | xargs -I {} dropdb -U ${POSTGRES_USER} --if-exists {} && \
-createdb -U ${POSTGRES_USER} ${POSTGRES_DB:-${POSTGRES_USER:-postgres}}
-EOD;
+                    $this->postgresqlRestoreCommand = $this->postgresqlDumpAllRestoreCommand();
                     $this->restoreCommandText = $this->postgresqlRestoreCommand.' && (gunzip -cf <temp_backup_file> 2>/dev/null || cat <temp_backup_file>) | psql -U ${POSTGRES_USER} -d ${POSTGRES_DB:-${POSTGRES_USER:-postgres}}';
                 } else {
-                    $this->postgresqlRestoreCommand = 'pg_restore -U ${POSTGRES_USER} -d ${POSTGRES_DB:-${POSTGRES_USER:-postgres}}';
+                    $this->postgresqlRestoreCommand = self::POSTGRESQL_RESTORE_COMMAND;
                 }
                 break;
         }
@@ -321,7 +335,7 @@ EOD;
         $this->resourceStatus = $resource->status ?? '';
 
         // Handle ServiceDatabase server access differently
-        if ($resource->getMorphClass() === \App\Models\ServiceDatabase::class) {
+        if ($resource->getMorphClass() === ServiceDatabase::class) {
             $server = $resource->service?->server;
             if (! $server) {
                 abort(404, 'Server not found for this service database.');
@@ -359,16 +373,16 @@ EOD;
         }
 
         if (
-            $resource->getMorphClass() === \App\Models\StandaloneRedis::class ||
-            $resource->getMorphClass() === \App\Models\StandaloneKeydb::class ||
-            $resource->getMorphClass() === \App\Models\StandaloneDragonfly::class ||
-            $resource->getMorphClass() === \App\Models\StandaloneClickhouse::class
+            $resource->getMorphClass() === StandaloneRedis::class ||
+            $resource->getMorphClass() === StandaloneKeydb::class ||
+            $resource->getMorphClass() === StandaloneDragonfly::class ||
+            $resource->getMorphClass() === StandaloneClickhouse::class
         ) {
             $this->unsupported = true;
         }
 
         // Mark unsupported ServiceDatabase types (Redis, KeyDB, etc.)
-        if ($resource->getMorphClass() === \App\Models\ServiceDatabase::class) {
+        if ($resource->getMorphClass() === ServiceDatabase::class) {
             $dbType = $resource->databaseType();
             if (str_contains($dbType, 'redis') || str_contains($dbType, 'keydb') ||
                 str_contains($dbType, 'dragonfly') || str_contains($dbType, 'clickhouse')) {
@@ -439,6 +453,7 @@ EOD;
             $this->importRunning = true;
             $this->importCommands = [];
             $backupFileName = "upload/{$this->resourceUuid}/restore";
+            $escapedContainer = escapeshellarg($this->container);
 
             // Check if an uploaded file exists first (takes priority over custom location)
             if (Storage::exists($backupFileName)) {
@@ -446,7 +461,7 @@ EOD;
                 $tmpPath = '/tmp/'.basename($backupFileName).'_'.$this->resourceUuid;
                 instant_scp($path, $tmpPath, $this->server);
                 Storage::delete($backupFileName);
-                $this->importCommands[] = "docker cp {$tmpPath} {$this->container}:{$tmpPath}";
+                $this->importCommands[] = 'docker cp '.escapeshellarg($tmpPath).' '.escapeshellarg("{$this->container}:{$tmpPath}");
             } elseif (filled($this->customLocation)) {
                 // Validate the custom location to prevent command injection
                 if (! $this->validateServerPath($this->customLocation)) {
@@ -456,7 +471,7 @@ EOD;
                 }
                 $tmpPath = '/tmp/restore_'.$this->resourceUuid;
                 $escapedCustomLocation = escapeshellarg($this->customLocation);
-                $this->importCommands[] = "docker cp {$escapedCustomLocation} {$this->container}:{$tmpPath}";
+                $this->importCommands[] = 'docker cp '.$escapedCustomLocation.' '.escapeshellarg("{$this->container}:{$tmpPath}");
             } else {
                 $this->dispatch('error', 'The file does not exist or has been deleted.');
 
@@ -469,12 +484,12 @@ EOD;
             $restoreCommand = $this->buildRestoreCommand($tmpPath);
 
             $restoreCommandBase64 = base64_encode($restoreCommand);
-            $this->importCommands[] = "echo \"{$restoreCommandBase64}\" | base64 -d > {$scriptPath}";
-            $this->importCommands[] = "chmod +x {$scriptPath}";
-            $this->importCommands[] = "docker cp {$scriptPath} {$this->container}:{$scriptPath}";
+            $this->importCommands[] = 'echo '.escapeshellarg($restoreCommandBase64).' | base64 -d > '.escapeshellarg($scriptPath);
+            $this->importCommands[] = 'chmod +x '.escapeshellarg($scriptPath);
+            $this->importCommands[] = 'docker cp '.escapeshellarg($scriptPath).' '.escapeshellarg("{$this->container}:{$scriptPath}");
 
-            $this->importCommands[] = "docker exec {$this->container} sh -c '{$scriptPath}'";
-            $this->importCommands[] = "docker exec {$this->container} sh -c 'echo \"Import finished with exit code $?\"'";
+            $this->importCommands[] = 'docker exec '.$escapedContainer.' sh -c '.escapeshellarg($scriptPath);
+            $this->importCommands[] = 'docker exec '.$escapedContainer.' sh -c '.escapeshellarg('echo "Import finished with exit code $?"');
 
             if (! empty($this->importCommands)) {
                 $activity = remote_process($this->importCommands, $this->server, ignore_errors: true, callEventOnFinish: 'RestoreJobFinished', callEventData: [
@@ -664,65 +679,71 @@ EOD;
             $fullImageName = "{$helperImage}:{$latestVersion}";
 
             // Get the database destination network
-            if ($this->resource->getMorphClass() === \App\Models\ServiceDatabase::class) {
+            if ($this->resource->getMorphClass() === ServiceDatabase::class) {
                 $destinationNetwork = $this->resource->service->destination->network ?? 'coolify';
             } else {
                 $destinationNetwork = $this->resource->destination->network ?? 'coolify';
             }
 
             // Generate unique names for this operation
+            $safeBasename = preg_replace('/[^A-Za-z0-9._@+=-]/', '_', basename($cleanPath)) ?: 'restore';
             $containerName = "s3-restore-{$this->resourceUuid}";
-            $helperTmpPath = '/tmp/'.basename($cleanPath);
-            $serverTmpPath = "/tmp/s3-restore-{$this->resourceUuid}-".basename($cleanPath);
-            $containerTmpPath = "/tmp/restore_{$this->resourceUuid}-".basename($cleanPath);
+            $helperTmpPath = '/tmp/'.$safeBasename;
+            $serverTmpPath = "/tmp/s3-restore-{$this->resourceUuid}-".$safeBasename;
+            $containerTmpPath = "/tmp/restore_{$this->resourceUuid}-".$safeBasename;
             $scriptPath = "/tmp/restore_{$this->resourceUuid}.sh";
+            $escapedContainer = escapeshellarg($this->container);
+            $escapedContainerName = escapeshellarg($containerName);
+            $escapedContainerTmpPath = escapeshellarg($containerTmpPath);
+            $escapedDestinationNetwork = escapeshellarg($destinationNetwork);
+            $escapedFullImageName = escapeshellarg($fullImageName);
+            $escapedScriptPath = escapeshellarg($scriptPath);
+            $escapedServerTmpPath = escapeshellarg($serverTmpPath);
 
             // Prepare all commands in sequence
             $commands = [];
 
             // 1. Clean up any existing helper container and temp files from previous runs
-            $commands[] = "docker rm -f {$containerName} 2>/dev/null || true";
-            $commands[] = "rm -f {$serverTmpPath} 2>/dev/null || true";
-            $commands[] = "docker exec {$this->container} rm -f {$containerTmpPath} {$scriptPath} 2>/dev/null || true";
+            $commands[] = "docker rm -f {$escapedContainerName} 2>/dev/null || true";
+            $commands[] = "rm -f {$escapedServerTmpPath} 2>/dev/null || true";
+            $commands[] = "docker exec {$escapedContainer} rm -f {$escapedContainerTmpPath} {$escapedScriptPath} 2>/dev/null || true";
 
             // 2. Start helper container on the database network
-            $commands[] = "docker run -d --network {$destinationNetwork} --name {$containerName} {$fullImageName} sleep 3600";
+            $commands[] = "docker run -d --network {$escapedDestinationNetwork} --name {$escapedContainerName} {$escapedFullImageName} sleep 3600";
 
             // 3. Configure S3 access in helper container
             $escapedEndpoint = escapeshellarg($endpoint);
             $escapedKey = escapeshellarg($key);
             $escapedSecret = escapeshellarg($secret);
-            $commands[] = "docker exec {$containerName} mc alias set s3temp {$escapedEndpoint} {$escapedKey} {$escapedSecret}";
+            $commands[] = "docker exec {$escapedContainerName} mc alias set s3temp {$escapedEndpoint} {$escapedKey} {$escapedSecret}";
 
             // 4. Check file exists in S3 (bucket and path already validated above)
-            $escapedBucket = escapeshellarg($bucket);
-            $escapedCleanPath = escapeshellarg($cleanPath);
             $escapedS3Source = escapeshellarg("s3temp/{$bucket}/{$cleanPath}");
-            $commands[] = "docker exec {$containerName} mc stat {$escapedS3Source}";
+            $commands[] = "docker exec {$escapedContainerName} mc stat {$escapedS3Source}";
 
             // 5. Download from S3 to helper container (progress shown by default)
             $escapedHelperTmpPath = escapeshellarg($helperTmpPath);
-            $commands[] = "docker exec {$containerName} mc cp {$escapedS3Source} {$escapedHelperTmpPath}";
+            $commands[] = "docker exec {$escapedContainerName} mc cp {$escapedS3Source} {$escapedHelperTmpPath}";
 
             // 6. Copy from helper to server, then immediately to database container
-            $commands[] = "docker cp {$containerName}:{$helperTmpPath} {$serverTmpPath}";
-            $commands[] = "docker cp {$serverTmpPath} {$this->container}:{$containerTmpPath}";
+            $commands[] = 'docker cp '.escapeshellarg("{$containerName}:{$helperTmpPath}").' '.$escapedServerTmpPath;
+            $commands[] = 'docker cp '.$escapedServerTmpPath.' '.escapeshellarg("{$this->container}:{$containerTmpPath}");
 
             // 7. Cleanup helper container and server temp file immediately (no longer needed)
-            $commands[] = "docker rm -f {$containerName} 2>/dev/null || true";
-            $commands[] = "rm -f {$serverTmpPath} 2>/dev/null || true";
+            $commands[] = "docker rm -f {$escapedContainerName} 2>/dev/null || true";
+            $commands[] = "rm -f {$escapedServerTmpPath} 2>/dev/null || true";
 
             // 8. Build and execute restore command inside database container
             $restoreCommand = $this->buildRestoreCommand($containerTmpPath);
 
             $restoreCommandBase64 = base64_encode($restoreCommand);
-            $commands[] = "echo \"{$restoreCommandBase64}\" | base64 -d > {$scriptPath}";
-            $commands[] = "chmod +x {$scriptPath}";
-            $commands[] = "docker cp {$scriptPath} {$this->container}:{$scriptPath}";
+            $commands[] = 'echo '.escapeshellarg($restoreCommandBase64).' | base64 -d > '.$escapedScriptPath;
+            $commands[] = 'chmod +x '.$escapedScriptPath;
+            $commands[] = 'docker cp '.$escapedScriptPath.' '.escapeshellarg("{$this->container}:{$scriptPath}");
 
             // 9. Execute restore and cleanup temp files immediately after completion
-            $commands[] = "docker exec {$this->container} sh -c '{$scriptPath} && rm -f {$containerTmpPath} {$scriptPath}'";
-            $commands[] = "docker exec {$this->container} sh -c 'echo \"Import finished with exit code $?\"'";
+            $commands[] = 'docker exec '.$escapedContainer.' sh -c '.escapeshellarg("{$scriptPath} && rm -f {$containerTmpPath} {$scriptPath}");
+            $commands[] = 'docker exec '.$escapedContainer.' sh -c '.escapeshellarg('echo "Import finished with exit code $?"');
 
             // Execute all commands with cleanup event (as safety net for edge cases)
             $activity = remote_process($commands, $this->server, ignore_errors: true, callEventOnFinish: 'S3RestoreJobFinished', callEventData: [
@@ -753,10 +774,11 @@ EOD;
 
     public function buildRestoreCommand(string $tmpPath): string
     {
-        $morphClass = $this->resource->getMorphClass();
+        $morphClass = $this->restoreResource()->getMorphClass();
+        $escapedTmpPath = escapeshellarg($tmpPath);
 
         // Handle ServiceDatabase by checking the database type
-        if ($morphClass === \App\Models\ServiceDatabase::class) {
+        if ($morphClass === ServiceDatabase::class) {
             $dbType = $this->resource->databaseType();
             if (str_contains($dbType, 'mysql')) {
                 $morphClass = 'mysql';
@@ -770,38 +792,38 @@ EOD;
         }
 
         switch ($morphClass) {
-            case \App\Models\StandaloneMariadb::class:
+            case StandaloneMariadb::class:
             case 'mariadb':
-                $restoreCommand = $this->mariadbRestoreCommand;
+                $restoreCommand = $this->dumpAll ? $this->mariadbDumpAllRestoreCommand() : self::MARIADB_RESTORE_COMMAND;
                 if ($this->dumpAll) {
-                    $restoreCommand .= " && (gunzip -cf {$tmpPath} 2>/dev/null || cat {$tmpPath}) | mariadb -u root -p\$MARIADB_ROOT_PASSWORD \${MARIADB_DATABASE:-default}";
+                    $restoreCommand .= " && (gunzip -cf {$escapedTmpPath} 2>/dev/null || cat {$escapedTmpPath}) | mariadb -u root -p\$MARIADB_ROOT_PASSWORD \${MARIADB_DATABASE:-default}";
                 } else {
-                    $restoreCommand .= " < {$tmpPath}";
+                    $restoreCommand .= " < {$escapedTmpPath}";
                 }
                 break;
-            case \App\Models\StandaloneMysql::class:
+            case StandaloneMysql::class:
             case 'mysql':
-                $restoreCommand = $this->mysqlRestoreCommand;
+                $restoreCommand = $this->dumpAll ? $this->mysqlDumpAllRestoreCommand() : self::MYSQL_RESTORE_COMMAND;
                 if ($this->dumpAll) {
-                    $restoreCommand .= " && (gunzip -cf {$tmpPath} 2>/dev/null || cat {$tmpPath}) | mysql -u root -p\$MYSQL_ROOT_PASSWORD \${MYSQL_DATABASE:-default}";
+                    $restoreCommand .= " && (gunzip -cf {$escapedTmpPath} 2>/dev/null || cat {$escapedTmpPath}) | mysql -u root -p\$MYSQL_ROOT_PASSWORD \${MYSQL_DATABASE:-default}";
                 } else {
-                    $restoreCommand .= " < {$tmpPath}";
+                    $restoreCommand .= " < {$escapedTmpPath}";
                 }
                 break;
-            case \App\Models\StandalonePostgresql::class:
+            case StandalonePostgresql::class:
             case 'postgresql':
-                $restoreCommand = $this->postgresqlRestoreCommand;
+                $restoreCommand = $this->dumpAll ? $this->postgresqlDumpAllRestoreCommand() : $this->safePostgresqlRestoreCommand();
                 if ($this->dumpAll) {
-                    $restoreCommand .= " && (gunzip -cf {$tmpPath} 2>/dev/null || cat {$tmpPath}) | psql -U \${POSTGRES_USER} -d \${POSTGRES_DB:-\${POSTGRES_USER:-postgres}}";
+                    $restoreCommand .= " && (gunzip -cf {$escapedTmpPath} 2>/dev/null || cat {$escapedTmpPath}) | psql -U \${POSTGRES_USER} -d \${POSTGRES_DB:-\${POSTGRES_USER:-postgres}}";
                 } else {
-                    $restoreCommand .= " {$tmpPath}";
+                    $restoreCommand .= " {$escapedTmpPath}";
                 }
                 break;
-            case \App\Models\StandaloneMongodb::class:
+            case StandaloneMongodb::class:
             case 'mongodb':
-                $restoreCommand = $this->mongodbRestoreCommand;
+                $restoreCommand = self::MONGODB_RESTORE_COMMAND;
                 if ($this->dumpAll === false) {
-                    $restoreCommand .= "{$tmpPath}";
+                    $restoreCommand .= $escapedTmpPath;
                 }
                 break;
             default:
@@ -809,5 +831,71 @@ EOD;
         }
 
         return $restoreCommand;
+    }
+
+    protected function restoreResource(): mixed
+    {
+        return $this->resource;
+    }
+
+    private function safePostgresqlRestoreCommand(): string
+    {
+        $command = (string) preg_replace('/\s+/', ' ', trim($this->postgresqlRestoreCommand));
+
+        foreach ([self::POSTGRESQL_RESTORE_COMMAND, self::LEGACY_POSTGRESQL_RESTORE_COMMAND] as $baseCommand) {
+            if ($command === $baseCommand) {
+                return $command;
+            }
+
+            if (str_starts_with($command, $baseCommand.' ')) {
+                return $baseCommand.' '.$this->safePostgresqlRestoreFlags(substr($command, strlen($baseCommand) + 1));
+            }
+        }
+
+        throw new \Exception('Invalid PostgreSQL restore command. Only pg_restore with approved flags is allowed.');
+    }
+
+    private function safePostgresqlRestoreFlags(string $flags): string
+    {
+        $parts = preg_split('/\s+/', trim($flags), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach ($parts as $part) {
+            if (! in_array($part, self::ALLOWED_POSTGRESQL_RESTORE_FLAGS, true)) {
+                throw new \Exception('Invalid PostgreSQL restore flag: '.$part);
+            }
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function postgresqlDumpAllRestoreCommand(): string
+    {
+        return <<<'EOD'
+psql -U ${POSTGRES_USER} -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname IS NOT NULL AND pid <> pg_backend_pid()" && \
+psql -U ${POSTGRES_USER} -t -c "SELECT datname FROM pg_database WHERE NOT datistemplate" | xargs -I {} dropdb -U ${POSTGRES_USER} --if-exists {} && \
+createdb -U ${POSTGRES_USER} ${POSTGRES_DB:-${POSTGRES_USER:-postgres}}
+EOD;
+    }
+
+    private function mysqlDumpAllRestoreCommand(): string
+    {
+        return <<<'EOD'
+for pid in $(mysql -u root -p$MYSQL_ROOT_PASSWORD -N -e "SELECT id FROM information_schema.processlist WHERE user != 'root';"); do
+  mysql -u root -p$MYSQL_ROOT_PASSWORD -e "KILL $pid" 2>/dev/null || true
+done && \
+mysql -u root -p$MYSQL_ROOT_PASSWORD -N -e "SELECT CONCAT('DROP DATABASE IF EXISTS \`',schema_name,'\`;') FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema','mysql','performance_schema','sys');" | mysql -u root -p$MYSQL_ROOT_PASSWORD && \
+mysql -u root -p$MYSQL_ROOT_PASSWORD -e "CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE:-default}\`;"
+EOD;
+    }
+
+    private function mariadbDumpAllRestoreCommand(): string
+    {
+        return <<<'EOD'
+for pid in $(mariadb -u root -p$MARIADB_ROOT_PASSWORD -N -e "SELECT id FROM information_schema.processlist WHERE user != 'root';"); do
+  mariadb -u root -p$MARIADB_ROOT_PASSWORD -e "KILL $pid" 2>/dev/null || true
+done && \
+mariadb -u root -p$MARIADB_ROOT_PASSWORD -N -e "SELECT CONCAT('DROP DATABASE IF EXISTS \`',schema_name,'\`;') FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema','mysql','performance_schema','sys');" | mariadb -u root -p$MARIADB_ROOT_PASSWORD && \
+mariadb -u root -p$MARIADB_ROOT_PASSWORD -e "CREATE DATABASE IF NOT EXISTS \`${MARIADB_DATABASE:-default}\`;"
+EOD;
     }
 }

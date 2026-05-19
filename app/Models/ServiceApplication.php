@@ -48,7 +48,7 @@ class ServiceApplication extends BaseModel
     public function restart()
     {
         $container_id = $this->name.'-'.$this->service->uuid;
-        instant_remote_process(["docker restart {$container_id}"], $this->service->server);
+        instant_remote_process([dockerRestartContainerCommand($container_id)], $this->service->server);
     }
 
     public static function ownedByCurrentTeamAPI(int $teamId)

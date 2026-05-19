@@ -78,6 +78,19 @@ it('prevents command injection in docker stop container names', function () {
         ->not->toContain('docker stop --time=30 coolify-deployment;');
 });
 
+it('quotes docker restart container names', function () {
+    expect(dockerRestartContainerCommand('coolify-app'))
+        ->toBe("docker restart 'coolify-app'");
+});
+
+it('prevents command injection in docker restart container names', function () {
+    $command = dockerRestartContainerCommand('coolify-app; id #');
+
+    expect($command)
+        ->toBe("docker restart 'coolify-app; id #'")
+        ->not->toContain('docker restart coolify-app;');
+});
+
 it('quotes docker container logs arguments', function () {
     expect(dockerContainerLogsCommand('coolify-app', 200, timestamps: true, redirectStderr: true))
         ->toBe("docker logs -n 200 -t 'coolify-app' 2>&1");

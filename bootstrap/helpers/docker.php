@@ -185,6 +185,11 @@ function dockerStopContainerCommand(string $container_id, int $timeout): string
     return 'docker stop --time='.(int) $timeout.' '.escapeshellarg($container_id);
 }
 
+function dockerRestartContainerCommand(string $container_id): string
+{
+    return 'docker restart '.escapeshellarg($container_id);
+}
+
 function dockerContainerLogsCommand(string $container_id, ?int $lines = 100, bool $timestamps = false, bool $redirectStderr = false): string
 {
     $lineFlag = $lines === null ? '' : ' -n '.max(1, (int) $lines);

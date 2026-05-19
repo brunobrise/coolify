@@ -1398,13 +1398,13 @@ class Application extends BaseModel
                     if ($exec_in_docker) {
                         $commands = collect([
                             executeInDocker($deployment_uuid, 'mkdir -p /root/.ssh'),
-                            executeInDocker($deployment_uuid, "echo '{$private_key}' | base64 -d | tee /root/.ssh/id_rsa > /dev/null"),
+                            writeBase64FileInDockerCommand($deployment_uuid, '/root/.ssh/id_rsa', $private_key),
                             executeInDocker($deployment_uuid, 'chmod 600 /root/.ssh/id_rsa'),
                         ]);
                     } else {
                         $commands = collect([
                             'mkdir -p /root/.ssh',
-                            "echo '{$private_key}' | base64 -d | tee /root/.ssh/id_rsa > /dev/null",
+                            writeBase64FileCommand('/root/.ssh/id_rsa', $private_key),
                             'chmod 600 /root/.ssh/id_rsa',
                         ]);
                     }
@@ -1456,13 +1456,13 @@ class Application extends BaseModel
             if ($exec_in_docker) {
                 $commands = collect([
                     executeInDocker($deployment_uuid, 'mkdir -p /root/.ssh'),
-                    executeInDocker($deployment_uuid, "echo '{$private_key}' | base64 -d | tee /root/.ssh/id_rsa > /dev/null"),
+                    writeBase64FileInDockerCommand($deployment_uuid, '/root/.ssh/id_rsa', $private_key),
                     executeInDocker($deployment_uuid, 'chmod 600 /root/.ssh/id_rsa'),
                 ]);
             } else {
                 $commands = collect([
                     'mkdir -p /root/.ssh',
-                    "echo '{$private_key}' | base64 -d | tee /root/.ssh/id_rsa > /dev/null",
+                    writeBase64FileCommand('/root/.ssh/id_rsa', $private_key),
                     'chmod 600 /root/.ssh/id_rsa',
                 ]);
             }
@@ -1610,13 +1610,13 @@ class Application extends BaseModel
                     if ($exec_in_docker) {
                         $commands = collect([
                             executeInDocker($deployment_uuid, 'mkdir -p /root/.ssh'),
-                            executeInDocker($deployment_uuid, "echo '{$private_key}' | base64 -d | tee /root/.ssh/id_rsa > /dev/null"),
+                            writeBase64FileInDockerCommand($deployment_uuid, '/root/.ssh/id_rsa', $private_key),
                             executeInDocker($deployment_uuid, 'chmod 600 /root/.ssh/id_rsa'),
                         ]);
                     } else {
                         $commands = collect([
                             'mkdir -p /root/.ssh',
-                            "echo '{$private_key}' | base64 -d | tee /root/.ssh/id_rsa > /dev/null",
+                            writeBase64FileCommand('/root/.ssh/id_rsa', $private_key),
                             'chmod 600 /root/.ssh/id_rsa',
                         ]);
                     }
@@ -1681,13 +1681,13 @@ class Application extends BaseModel
             if ($exec_in_docker) {
                 $commands = collect([
                     executeInDocker($deployment_uuid, 'mkdir -p /root/.ssh'),
-                    executeInDocker($deployment_uuid, "echo '{$private_key}' | base64 -d | tee /root/.ssh/id_rsa > /dev/null"),
+                    writeBase64FileInDockerCommand($deployment_uuid, '/root/.ssh/id_rsa', $private_key),
                     executeInDocker($deployment_uuid, 'chmod 600 /root/.ssh/id_rsa'),
                 ]);
             } else {
                 $commands = collect([
                     'mkdir -p /root/.ssh',
-                    "echo '{$private_key}' | base64 -d | tee /root/.ssh/id_rsa > /dev/null",
+                    writeBase64FileCommand('/root/.ssh/id_rsa', $private_key),
                     'chmod 600 /root/.ssh/id_rsa',
                 ]);
             }

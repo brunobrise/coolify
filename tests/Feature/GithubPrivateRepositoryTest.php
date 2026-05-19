@@ -2,9 +2,11 @@
 
 use App\Livewire\Project\New\GithubPrivateRepository;
 use App\Models\GithubApp;
+use App\Models\InstanceSettings;
 use App\Models\PrivateKey;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
@@ -12,6 +14,8 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0]));
+
     $this->team = Team::factory()->create();
     $this->user = User::factory()->create();
     $this->team->members()->attach($this->user->id, ['role' => 'owner']);
@@ -161,4 +165,26 @@ describe('GitHub Private Repository Component', function () {
         Livewire::test(GithubPrivateRepository::class, ['type' => 'private-gh-app'])
             ->assertDontSee('Refresh Repository List');
     });
+
+    test('loadRepositories rejects github apps outside the current team', function () {
+        $otherTeam = Team::factory()->create();
+        $otherGithubApp = GithubApp::create([
+            'name' => 'Other GitHub App',
+            'api_url' => 'https://api.github.com',
+            'html_url' => 'https://github.com',
+            'custom_user' => 'git',
+            'custom_port' => 22,
+            'app_id' => 11111,
+            'installation_id' => 22222,
+            'client_id' => 'other-client-id',
+            'client_secret' => 'other-client-secret',
+            'webhook_secret' => 'other-webhook-secret',
+            'team_id' => $otherTeam->id,
+            'is_system_wide' => false,
+        ]);
+
+        expect(fn () => Livewire::test(GithubPrivateRepository::class, ['type' => 'private-gh-app'])
+            ->call('loadRepositories', $otherGithubApp->id))->toThrow(ModelNotFoundException::class);
+    });
+
 });

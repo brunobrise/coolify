@@ -7,12 +7,15 @@ use App\Models\GithubApp;
 use App\Models\Project;
 use App\Rules\ValidGitBranch;
 use App\Support\ValidationPatterns;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Route;
 use Livewire\Component;
 
 class GithubPrivateRepository extends Component
 {
+    use AuthorizesRequests;
+
     public $current_step = 'github_apps';
 
     public $github_apps;
@@ -103,7 +106,15 @@ class GithubPrivateRepository extends Component
         $this->total_branches_count = 0;
         $this->page = 1;
         $this->selected_github_app_id = $github_app_id;
-        $this->github_app = GithubApp::where('id', $github_app_id)->first();
+        $this->github_app = GithubApp::where('id', $github_app_id)
+            ->where('is_public', false)
+            ->whereNotNull('app_id')
+            ->where(function ($query) {
+                $query->where('team_id', currentTeam()->id)
+                    ->orWhere('is_system_wide', true);
+            })
+            ->firstOrFail();
+        $this->authorize('useForDeployment', $this->github_app);
         $this->token = generateGithubInstallationToken($this->github_app);
         $repositories = loadRepositoryByPage($this->github_app, $this->token, $this->page);
         $this->total_repositories_count = $repositories['total_count'];
@@ -125,6 +136,7 @@ class GithubPrivateRepository extends Component
 
     public function loadBranches()
     {
+        $this->authorize('useForDeployment', $this->github_app);
         $this->selected_repository_owner = $this->repositories->where('id', $this->selected_repository_id)->first()['owner']['login'];
         $this->selected_repository_repo = $this->repositories->where('id', $this->selected_repository_id)->first()['name'];
         $this->branches = collect();
@@ -161,6 +173,8 @@ class GithubPrivateRepository extends Component
     public function submit()
     {
         try {
+            $this->authorize('useForDeployment', $this->github_app);
+
             // Validate git repository parts and branch
             $validator = validator([
                 'selected_repository_owner' => $this->selected_repository_owner,

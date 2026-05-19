@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\GithubApp;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 
 class GithubAppPolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -20,8 +23,11 @@ class GithubAppPolicy
      */
     public function view(User $user, GithubApp $githubApp): bool
     {
-        // return $user->teams->contains('id', $githubApp->team_id) || $githubApp->is_system_wide;
-        return true;
+        if ($githubApp->is_system_wide) {
+            return true;
+        }
+
+        return $this->canViewTeam($user, $githubApp->team_id);
     }
 
     /**
@@ -29,8 +35,7 @@ class GithubAppPolicy
      */
     public function create(User $user): bool
     {
-        // return $user->isAdmin();
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -39,12 +44,10 @@ class GithubAppPolicy
     public function update(User $user, GithubApp $githubApp): bool
     {
         if ($githubApp->is_system_wide) {
-            // return $user->isAdmin();
-            return true;
+            return $user->canAccessSystemResources();
         }
 
-        // return $user->isAdmin() && $user->teams->contains('id', $githubApp->team_id);
-        return true;
+        return $this->canManageTeam($user, $githubApp->team_id);
     }
 
     /**
@@ -53,12 +56,19 @@ class GithubAppPolicy
     public function delete(User $user, GithubApp $githubApp): bool
     {
         if ($githubApp->is_system_wide) {
-            // return $user->isAdmin();
-            return true;
+            return $user->canAccessSystemResources();
         }
 
-        // return $user->isAdmin() && $user->teams->contains('id', $githubApp->team_id);
-        return true;
+        return $this->canManageTeam($user, $githubApp->team_id);
+    }
+
+    public function useForDeployment(User $user, GithubApp $githubApp): bool
+    {
+        if ($githubApp->is_system_wide) {
+            return $this->canManageTeam($user, $this->currentTeamId($user));
+        }
+
+        return $this->canManageTeam($user, $githubApp->team_id);
     }
 
     /**

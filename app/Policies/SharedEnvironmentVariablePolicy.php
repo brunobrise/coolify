@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\SharedEnvironmentVariable;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 
 class SharedEnvironmentVariablePolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -28,8 +31,7 @@ class SharedEnvironmentVariablePolicy
      */
     public function create(User $user): bool
     {
-        // return $user->isAdmin();
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -37,8 +39,7 @@ class SharedEnvironmentVariablePolicy
      */
     public function update(User $user, SharedEnvironmentVariable $sharedEnvironmentVariable): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $sharedEnvironmentVariable->team_id);
-        return true;
+        return $this->canManageTeam($user, $sharedEnvironmentVariable->team_id);
     }
 
     /**
@@ -46,8 +47,7 @@ class SharedEnvironmentVariablePolicy
      */
     public function delete(User $user, SharedEnvironmentVariable $sharedEnvironmentVariable): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $sharedEnvironmentVariable->team_id);
-        return true;
+        return $this->canManageTeam($user, $sharedEnvironmentVariable->team_id);
     }
 
     /**
@@ -55,8 +55,7 @@ class SharedEnvironmentVariablePolicy
      */
     public function restore(User $user, SharedEnvironmentVariable $sharedEnvironmentVariable): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $sharedEnvironmentVariable->team_id);
-        return true;
+        return false;
     }
 
     /**
@@ -64,8 +63,7 @@ class SharedEnvironmentVariablePolicy
      */
     public function forceDelete(User $user, SharedEnvironmentVariable $sharedEnvironmentVariable): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $sharedEnvironmentVariable->team_id);
-        return true;
+        return false;
     }
 
     /**
@@ -73,7 +71,6 @@ class SharedEnvironmentVariablePolicy
      */
     public function manageEnvironment(User $user, SharedEnvironmentVariable $sharedEnvironmentVariable): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $sharedEnvironmentVariable->team_id);
-        return true;
+        return $this->canManageTeam($user, $sharedEnvironmentVariable->team_id);
     }
 }

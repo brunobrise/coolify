@@ -41,6 +41,16 @@ describe('GitHub Source Create Component', function () {
     });
 
     test('creates github app with system wide enabled', function () {
+        $rootTeam = new Team([
+            'name' => 'Root Team',
+            'personal_team' => true,
+        ]);
+        $rootTeam->id = 0;
+        $rootTeam->save();
+        $this->user->teams()->syncWithoutDetaching([$rootTeam->id => ['role' => 'owner']]);
+        $this->user->load('teams');
+        session(['currentTeam' => $rootTeam]);
+
         Livewire::test(Create::class)
             ->assertSuccessful()
             ->set('name', 'system-wide-app')
@@ -52,6 +62,17 @@ describe('GitHub Source Create Component', function () {
 
         expect($githubApp)->not->toBeNull();
         expect($githubApp->is_system_wide)->toBeTrue();
+    });
+
+    test('blocks non-root admins from creating system-wide github apps', function () {
+        Livewire::test(Create::class)
+            ->assertSuccessful()
+            ->set('name', 'blocked-system-wide-app')
+            ->set('is_system_wide', true)
+            ->call('createGitHubApp')
+            ->assertDispatched('error');
+
+        expect(GithubApp::where('name', 'blocked-system-wide-app')->exists())->toBeFalse();
     });
 
     test('creates github app with custom organization', function () {
@@ -72,8 +93,8 @@ describe('GitHub Source Create Component', function () {
         Livewire::test(Create::class)
             ->assertSuccessful()
             ->set('name', 'enterprise-app')
-            ->set('api_url', 'https://github.enterprise.com/api/v3')
-            ->set('html_url', 'https://github.enterprise.com')
+            ->set('api_url', 'https://github.com/api/v3')
+            ->set('html_url', 'https://github.com')
             ->set('custom_user', 'git-custom')
             ->set('custom_port', 2222)
             ->call('createGitHubApp')
@@ -82,8 +103,8 @@ describe('GitHub Source Create Component', function () {
         $githubApp = GithubApp::where('name', 'enterprise-app')->first();
 
         expect($githubApp)->not->toBeNull();
-        expect($githubApp->api_url)->toBe('https://github.enterprise.com/api/v3');
-        expect($githubApp->html_url)->toBe('https://github.enterprise.com');
+        expect($githubApp->api_url)->toBe('https://github.com/api/v3');
+        expect($githubApp->html_url)->toBe('https://github.com');
         expect($githubApp->custom_user)->toBe('git-custom');
         expect($githubApp->custom_port)->toBe(2222);
     });
@@ -93,7 +114,7 @@ describe('GitHub Source Create Component', function () {
             ->assertSuccessful()
             ->set('name', '')
             ->call('createGitHubApp')
-            ->assertHasErrors(['name']);
+            ->assertDispatched('error');
     });
 
     test('redirects to github app show page after creation', function () {

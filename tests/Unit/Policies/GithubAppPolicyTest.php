@@ -1,227 +1,106 @@
 <?php
 
+use App\Models\GithubApp;
+use App\Models\Team;
 use App\Models\User;
 use App\Policies\GithubAppPolicy;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
-it('allows any user to view any github apps', function () {
-    $user = Mockery::mock(User::class)->makePartial();
+uses(TestCase::class, RefreshDatabase::class);
 
-    $policy = new GithubAppPolicy;
-    expect($policy->viewAny($user))->toBeTrue();
-});
+beforeEach(function () {
+    $this->team = Team::factory()->create();
+    $this->owner = User::factory()->create();
+    $this->member = User::factory()->create();
+    $this->outsider = User::factory()->create();
 
-it('allows any user to view system-wide github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
+    $this->team->members()->attach($this->owner->id, ['role' => 'owner']);
+    $this->team->members()->attach($this->member->id, ['role' => 'member']);
 
-    $model = new class
-    {
-        public $team_id = 1;
+    $this->owner->load('teams');
+    $this->member->load('teams');
+    $this->outsider->load('teams');
 
-        public $is_system_wide = true;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->view($user, $model))->toBeTrue();
-});
-
-it('allows team member to view non-system-wide github app', function () {
-    $teams = collect([
-        (object) ['id' => 1, 'pivot' => (object) ['role' => 'member']],
+    $this->githubApp = GithubApp::create([
+        'name' => 'Team GitHub App',
+        'api_url' => 'https://api.github.com',
+        'html_url' => 'https://github.com',
+        'team_id' => $this->team->id,
+        'is_system_wide' => false,
+        'is_public' => false,
     ]);
 
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('getAttribute')->with('teams')->andReturn($teams);
-
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = false;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->view($user, $model))->toBeTrue();
-});
-
-it('denies non-team member to view non-system-wide github app', function () {
-    $teams = collect([
-        (object) ['id' => 2, 'pivot' => (object) ['role' => 'member']],
+    $this->systemGithubApp = GithubApp::create([
+        'name' => 'System GitHub App',
+        'api_url' => 'https://api.github.com',
+        'html_url' => 'https://github.com',
+        'team_id' => $this->team->id,
+        'is_system_wide' => true,
+        'is_public' => false,
     ]);
 
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('getAttribute')->with('teams')->andReturn($teams);
-
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = false;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->view($user, $model))->toBeFalse();
+    $this->policy = new GithubAppPolicy;
 });
 
-it('allows admin to create github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('isAdmin')->andReturn(true);
-
-    $policy = new GithubAppPolicy;
-    expect($policy->create($user))->toBeTrue();
+it('allows authenticated users to list github app summaries', function () {
+    expect($this->policy->viewAny($this->member))->toBeTrue();
 });
 
-it('denies non-admin to create github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('isAdmin')->andReturn(false);
-
-    $policy = new GithubAppPolicy;
-    expect($policy->create($user))->toBeFalse();
+it('allows team members to view their team github app summary', function () {
+    expect($this->policy->view($this->member, $this->githubApp))->toBeTrue();
 });
 
-it('allows user with system access to update system-wide github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('canAccessSystemResources')->andReturn(true);
-
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = true;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->update($user, $model))->toBeTrue();
+it('denies outsiders from viewing private team github apps', function () {
+    expect($this->policy->view($this->outsider, $this->githubApp))->toBeFalse();
 });
 
-it('denies user without system access to update system-wide github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('canAccessSystemResources')->andReturn(false);
-
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = true;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->update($user, $model))->toBeFalse();
+it('allows system-wide github apps to appear in source lists', function () {
+    expect($this->policy->view($this->outsider, $this->systemGithubApp))->toBeTrue();
 });
 
-it('allows team admin to update non-system-wide github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('isAdminOfTeam')->with(1)->andReturn(true);
+it('allows only current team admins or owners to create github apps', function () {
+    session(['currentTeam' => $this->team]);
 
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = false;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->update($user, $model))->toBeTrue();
+    expect($this->policy->create($this->owner))->toBeTrue()
+        ->and($this->policy->create($this->member))->toBeFalse();
 });
 
-it('denies team member to update non-system-wide github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('isAdminOfTeam')->with(1)->andReturn(false);
-
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = false;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->update($user, $model))->toBeFalse();
+it('allows team admins or owners to update and delete team github apps', function () {
+    expect($this->policy->update($this->owner, $this->githubApp))->toBeTrue()
+        ->and($this->policy->delete($this->owner, $this->githubApp))->toBeTrue();
 });
 
-it('allows user with system access to delete system-wide github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('canAccessSystemResources')->andReturn(true);
-
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = true;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->delete($user, $model))->toBeTrue();
+it('denies team members from mutating team github apps', function () {
+    expect($this->policy->update($this->member, $this->githubApp))->toBeFalse()
+        ->and($this->policy->delete($this->member, $this->githubApp))->toBeFalse();
 });
 
-it('denies user without system access to delete system-wide github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('canAccessSystemResources')->andReturn(false);
+it('allows system-wide github apps to be used by current team admins', function () {
+    session(['currentTeam' => $this->team]);
 
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = true;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->delete($user, $model))->toBeFalse();
+    expect($this->policy->useForDeployment($this->owner, $this->systemGithubApp))->toBeTrue()
+        ->and($this->policy->useForDeployment($this->member, $this->systemGithubApp))->toBeFalse();
 });
 
-it('allows team admin to delete non-system-wide github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('isAdminOfTeam')->with(1)->andReturn(true);
+it('allows only root team admins or owners to mutate system-wide github apps', function () {
+    $rootTeam = new Team([
+        'name' => 'Root Team',
+        'personal_team' => true,
+    ]);
+    $rootTeam->id = 0;
+    $rootTeam->save();
 
-    $model = new class
-    {
-        public $team_id = 1;
+    $this->owner->teams()->syncWithoutDetaching([$rootTeam->id => ['role' => 'owner']]);
+    $this->owner->load('teams');
 
-        public $is_system_wide = false;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->delete($user, $model))->toBeTrue();
+    expect($this->policy->update($this->owner, $this->systemGithubApp))->toBeTrue()
+        ->and($this->policy->delete($this->owner, $this->systemGithubApp))->toBeTrue()
+        ->and($this->policy->update($this->member, $this->systemGithubApp))->toBeFalse()
+        ->and($this->policy->delete($this->member, $this->systemGithubApp))->toBeFalse();
 });
 
-it('denies team member to delete non-system-wide github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('isAdminOfTeam')->with(1)->andReturn(false);
-
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = false;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->delete($user, $model))->toBeFalse();
-});
-
-it('denies restore of github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = false;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->restore($user, $model))->toBeFalse();
-});
-
-it('denies force delete of github app', function () {
-    $user = Mockery::mock(User::class)->makePartial();
-
-    $model = new class
-    {
-        public $team_id = 1;
-
-        public $is_system_wide = false;
-    };
-
-    $policy = new GithubAppPolicy;
-    expect($policy->forceDelete($user, $model))->toBeFalse();
+it('denies restore and force delete of github apps', function () {
+    expect($this->policy->restore($this->owner, $this->githubApp))->toBeFalse()
+        ->and($this->policy->forceDelete($this->owner, $this->githubApp))->toBeFalse();
 });

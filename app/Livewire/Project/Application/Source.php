@@ -3,8 +3,10 @@
 namespace App\Livewire\Project\Application;
 
 use App\Models\Application;
+use App\Models\GithubApp;
 use App\Models\PrivateKey;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -136,9 +138,21 @@ class Source extends Component
 
         try {
             $this->authorize('update', $this->application);
+            $source = currentTeam()->sources()->first(function ($source) use ($sourceId, $sourceType) {
+                return (int) $source->id === (int) $sourceId && $source->getMorphClass() === $sourceType;
+            });
+            if (! $source) {
+                throw ValidationException::withMessages([
+                    'source' => 'The selected source is invalid for the current team.',
+                ]);
+            }
+            if ($source instanceof GithubApp) {
+                $this->authorize('useForDeployment', $source);
+            }
+
             $this->application->update([
-                'source_id' => $sourceId,
-                'source_type' => $sourceType,
+                'source_id' => $source->id,
+                'source_type' => $source->getMorphClass(),
             ]);
 
             ['repository' => $customRepository] = $this->application->customRepository();

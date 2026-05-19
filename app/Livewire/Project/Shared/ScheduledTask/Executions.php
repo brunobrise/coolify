@@ -45,7 +45,7 @@ class Executions extends Component
     {
         try {
             $this->taskId = $taskId;
-            $this->task = ScheduledTask::findOrFail($taskId);
+            $this->task = ScheduledTask::where('team_id', currentTeam()->id)->findOrFail($taskId);
             $this->executions = $this->task->executions()->take(20)->get();
             $this->serverTimezone = data_get($this->task, 'application.destination.server.settings.server_timezone');
             if (! $this->serverTimezone) {

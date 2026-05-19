@@ -1,10 +1,13 @@
 <?php
 
 use App\Livewire\Project\Shared\ScheduledTask\Add as AddScheduledTask;
+use App\Livewire\Project\Shared\ScheduledTask\Executions as ScheduledTaskExecutions;
 use App\Models\Application;
 use App\Models\Environment;
+use App\Models\InstanceSettings;
 use App\Models\Project;
 use App\Models\ScheduledTask;
+use App\Models\ScheduledTaskExecution;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -14,6 +17,8 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0]));
+
     $this->user = User::factory()->create();
     $this->team = Team::factory()->create();
     $this->user->teams()->attach($this->team, ['role' => 'owner']);
@@ -67,4 +72,34 @@ it('keeps scheduled task persistence internal to the submit flow', function () {
     $method = new ReflectionMethod(AddScheduledTask::class, 'saveScheduledTask');
 
     expect($method->isPrivate())->toBeTrue();
+});
+
+it('shows execution logs for a scheduled task owned by the current team', function () {
+    $application = scheduledTaskApplicationForTeam($this->team);
+    $task = ScheduledTask::factory()->create([
+        'team_id' => $this->team->id,
+        'application_id' => $application->id,
+    ]);
+    $execution = ScheduledTaskExecution::create([
+        'scheduled_task_id' => $task->id,
+        'status' => 'success',
+        'message' => 'task output',
+    ]);
+
+    $component = Livewire::test(ScheduledTaskExecutions::class, ['taskId' => $task->id])
+        ->call('selectTask', $execution->id);
+
+    expect($component->get('selectedExecution')->id)->toBe($execution->id);
+});
+
+it('cannot mount execution logs for a scheduled task from another team', function () {
+    $otherTeam = Team::factory()->create();
+    $otherApplication = scheduledTaskApplicationForTeam($otherTeam);
+    $otherTask = ScheduledTask::factory()->create([
+        'team_id' => $otherTeam->id,
+        'application_id' => $otherApplication->id,
+    ]);
+
+    Livewire::test(ScheduledTaskExecutions::class, ['taskId' => $otherTask->id])
+        ->assertStatus(404);
 });

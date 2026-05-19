@@ -88,3 +88,15 @@ it('rejects IPv6 loopback', function () {
     $validator = Validator::make(['url' => 'http://[::1]'], ['url' => $rule]);
     expect($validator->fails())->toBeTrue('Expected rejection: IPv6 loopback');
 });
+
+it('rejects IPv6 link-local and mapped loopback hosts', function (string $url) {
+    $rule = new SafeWebhookUrl;
+
+    $validator = Validator::make(['url' => $url], ['url' => $rule]);
+    expect($validator->fails())->toBeTrue("Expected rejection: {$url}");
+})->with([
+    'IPv6 unspecified' => 'http://[::]',
+    'IPv6 link-local' => 'http://[fe80::1]',
+    'IPv4 mapped loopback' => 'http://[::ffff:127.0.0.1]',
+    'localhost absolute' => 'http://localhost.',
+]);

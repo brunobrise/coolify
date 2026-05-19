@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\Project;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 
 class ProjectPolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -20,8 +23,7 @@ class ProjectPolicy
      */
     public function view(User $user, Project $project): bool
     {
-        // return $user->teams->contains('id', $project->team_id);
-        return true;
+        return $this->canViewTeam($user, $project->team_id);
     }
 
     /**
@@ -29,8 +31,7 @@ class ProjectPolicy
      */
     public function create(User $user): bool
     {
-        // return $user->isAdmin();
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -38,8 +39,7 @@ class ProjectPolicy
      */
     public function update(User $user, Project $project): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $project->team_id);
-        return true;
+        return $this->canManageTeam($user, $project->team_id);
     }
 
     /**
@@ -47,8 +47,7 @@ class ProjectPolicy
      */
     public function delete(User $user, Project $project): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $project->team_id);
-        return true;
+        return $this->canManageTeam($user, $project->team_id);
     }
 
     /**
@@ -56,8 +55,7 @@ class ProjectPolicy
      */
     public function restore(User $user, Project $project): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $project->team_id);
-        return true;
+        return $this->canManageTeam($user, $project->team_id);
     }
 
     /**
@@ -65,7 +63,6 @@ class ProjectPolicy
      */
     public function forceDelete(User $user, Project $project): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $project->team_id);
-        return true;
+        return $this->canManageTeam($user, $project->team_id);
     }
 }

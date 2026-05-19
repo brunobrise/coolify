@@ -70,6 +70,8 @@ class KubernetesApplicationManifestExtras
 
         if ($serviceAccountName !== '') {
             $podSpec['serviceAccountName'] = $serviceAccountName;
+        } else {
+            $podSpec['automountServiceAccountToken'] = false;
         }
 
         $imagePullSecrets = $this->data->stringList($this->options['image_pull_secrets'] ?? null);

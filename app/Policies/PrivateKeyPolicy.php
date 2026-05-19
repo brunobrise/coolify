@@ -30,8 +30,9 @@ class PrivateKeyPolicy
             return $user->canAccessSystemResources();
         }
 
-        // Regular resource: Check team membership
-        return $user->teams->contains('id', $privateKey->team_id);
+        // Regular resources contain secret material and require team admin/owner access.
+        return $user->isAdminOfTeam($privateKey->team_id)
+            && $user->teams->contains('id', $privateKey->team_id);
     }
 
     /**

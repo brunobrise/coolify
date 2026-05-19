@@ -231,6 +231,11 @@ function removeDirectoryCommand(string $path, string $context = 'directory path'
     return 'rm -rf '.escapeshellarg($path);
 }
 
+function writeBase64FileCommand(string $path, string $base64): string
+{
+    return 'printf %s '.escapeshellarg($base64).' | base64 -d | tee -- '.escapeshellarg($path).' > /dev/null';
+}
+
 function killProcessCommand(string|int $processId): string
 {
     $processId = trim((string) $processId);

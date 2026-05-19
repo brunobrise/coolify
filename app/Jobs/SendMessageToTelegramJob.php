@@ -75,7 +75,7 @@ class SendMessageToTelegramJob implements ShouldBeEncrypted, ShouldQueue
         if ($this->threadId) {
             $payload['message_thread_id'] = $this->threadId;
         }
-        $response = Http::post($url, $payload);
+        $response = Http::timeout(10)->withoutRedirecting()->post($url, $payload);
         if ($response->failed()) {
             throw new \RuntimeException('Telegram notification failed with '.$response->status().' status code.'.$response->body());
         }

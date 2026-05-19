@@ -14,13 +14,13 @@ use Lcobucci\JWT\Token\Builder;
 
 function generateGithubToken(GithubApp $source, string $type)
 {
-    $response = Http::get("{$source->api_url}/zen");
+    $response = Http::timeout(10)->withoutRedirecting()->get("{$source->api_url}/zen");
     $serverTime = CarbonImmutable::now()->setTimezone('UTC');
     $githubTime = Carbon::parse($response->header('date'));
     $timeDiff = abs($serverTime->diffInSeconds($githubTime));
 
     if ($timeDiff > 50) {
-        throw new \Exception(
+        throw new Exception(
             'System time is out of sync with GitHub API time:<br>'.
             '- System time: '.$serverTime->format('Y-m-d H:i:s').' UTC<br>'.
             '- GitHub time: '.$githubTime->format('Y-m-d H:i:s').' UTC<br>'.
@@ -45,7 +45,7 @@ function generateGithubToken(GithubApp $source, string $type)
     return match ($type) {
         'jwt' => $jwt,
         'installation' => (function () use ($source, $jwt) {
-            $response = Http::withHeaders([
+            $response = Http::timeout(10)->withoutRedirecting()->withHeaders([
                 'Authorization' => "Bearer $jwt",
                 'Accept' => 'application/vnd.github.machine-man-preview+json',
             ])->post("{$source->api_url}/app/installations/{$source->installation_id}/access_tokens");
@@ -60,7 +60,7 @@ function generateGithubToken(GithubApp $source, string $type)
 
             return $response->json()['token'];
         })(),
-        default => throw new \InvalidArgumentException("Unsupported token type: {$type}")
+        default => throw new InvalidArgumentException("Unsupported token type: {$type}")
     };
 }
 
@@ -77,11 +77,11 @@ function generateGithubJwt(GithubApp $source)
 function githubApi(GithubApp|GitlabApp|null $source, string $endpoint, string $method = 'get', ?array $data = null, bool $throwError = true)
 {
     if (is_null($source)) {
-        throw new \Exception('Source is required for API calls');
+        throw new Exception('Source is required for API calls');
     }
 
     if ($source->getMorphClass() !== GithubApp::class) {
-        throw new \InvalidArgumentException("Unsupported source type: {$source->getMorphClass()}");
+        throw new InvalidArgumentException("Unsupported source type: {$source->getMorphClass()}");
     }
 
     if ($source->is_public) {
@@ -100,7 +100,7 @@ function githubApi(GithubApp|GitlabApp|null $source, string $endpoint, string $m
         $errorMessage = data_get($response->json(), 'message', 'no error message found');
         $remainingCalls = $response->header('X-RateLimit-Remaining', '0');
 
-        throw new \Exception(
+        throw new Exception(
             'GitHub API call failed:<br>'.
             "Error: {$errorMessage}<br>".
             'Rate Limit Status:<br>'.

@@ -459,7 +459,7 @@ class Github extends Controller
             $state = $request->get('state');
             $github_app = GithubApp::where('uuid', $state)->firstOrFail();
             $api_url = data_get($github_app, 'api_url');
-            $data = Http::withBody(null)->accept('application/vnd.github+json')->post("$api_url/app-manifests/$code/conversions")->throw()->json();
+            $data = Http::timeout(10)->withoutRedirecting()->withBody(null)->accept('application/vnd.github+json')->post("$api_url/app-manifests/$code/conversions")->throw()->json();
             $id = data_get($data, 'id');
             $slug = data_get($data, 'slug');
             $client_id = data_get($data, 'client_id');

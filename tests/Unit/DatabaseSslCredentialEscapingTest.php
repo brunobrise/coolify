@@ -35,7 +35,7 @@ it('advisory PoC postgres_user payload is contained by escapeshellarg in chown c
     // The cmd contains the payload, but ONLY inside single-quoted segments — cannot break out.
     // Verify the chown arg is never an unquoted bare ; — the payload is inside '...'
     // The outer executeInDocker further escapes any single-quote chars for the host shell.
-    expect($cmd)->toContain('docker exec abc123 bash -c');
+    expect($cmd)->toContain("docker exec 'abc123' bash -c");
 
     // Before fix: chown root; touch /tmp/pwned_rce; # ... (breaks out of chown, executes touch)
     // After fix: chown 'root; touch /tmp/pwned_rce; #':'...' ... (literal arg to chown)

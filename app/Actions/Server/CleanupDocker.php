@@ -186,7 +186,7 @@ class CleanupDocker
 
             // Always delete all PR images
             foreach ($prImages as $image) {
-                $deleteCommand = "docker rmi {$image['image_ref']} 2>/dev/null || true";
+                $deleteCommand = dockerRemoveImageCommand($image['image_ref']).' 2>/dev/null || true';
                 $deleteOutput = instant_remote_process([$deleteCommand], $server, false);
                 $cleanupLog[] = [
                     'command' => $deleteCommand,
@@ -204,7 +204,7 @@ class CleanupDocker
             $imagesToDelete = $sortedRegularImages->skip($imagesToKeep);
 
             foreach ($imagesToDelete as $image) {
-                $deleteCommand = "docker rmi {$image['image_ref']} 2>/dev/null || true";
+                $deleteCommand = dockerRemoveImageCommand($image['image_ref']).' 2>/dev/null || true';
                 $deleteOutput = instant_remote_process([$deleteCommand], $server, false);
                 $cleanupLog[] = [
                     'command' => $deleteCommand,
@@ -223,7 +223,7 @@ class CleanupDocker
             foreach ($buildImages as $image) {
                 $baseTag = preg_replace('/-build$/', '', $image['tag']);
                 if (! $keptTags->contains($baseTag)) {
-                    $deleteCommand = "docker rmi {$image['image_ref']} 2>/dev/null || true";
+                    $deleteCommand = dockerRemoveImageCommand($image['image_ref']).' 2>/dev/null || true';
                     $deleteOutput = instant_remote_process([$deleteCommand], $server, false);
                     $cleanupLog[] = [
                         'command' => $deleteCommand,

@@ -484,7 +484,7 @@ class Import extends Component
             $restoreCommand = $this->buildRestoreCommand($tmpPath);
 
             $restoreCommandBase64 = base64_encode($restoreCommand);
-            $this->importCommands[] = 'echo '.escapeshellarg($restoreCommandBase64).' | base64 -d > '.escapeshellarg($scriptPath);
+            $this->importCommands[] = writeBase64FileCommand($scriptPath, $restoreCommandBase64);
             $this->importCommands[] = 'chmod +x '.escapeshellarg($scriptPath);
             $this->importCommands[] = 'docker cp '.escapeshellarg($scriptPath).' '.escapeshellarg("{$this->container}:{$scriptPath}");
 
@@ -737,7 +737,7 @@ class Import extends Component
             $restoreCommand = $this->buildRestoreCommand($containerTmpPath);
 
             $restoreCommandBase64 = base64_encode($restoreCommand);
-            $commands[] = 'echo '.escapeshellarg($restoreCommandBase64).' | base64 -d > '.$escapedScriptPath;
+            $commands[] = writeBase64FileCommand($scriptPath, $restoreCommandBase64);
             $commands[] = 'chmod +x '.$escapedScriptPath;
             $commands[] = 'docker cp '.$escapedScriptPath.' '.escapeshellarg("{$this->container}:{$scriptPath}");
 

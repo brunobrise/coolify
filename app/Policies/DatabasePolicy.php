@@ -3,10 +3,13 @@
 namespace App\Policies;
 
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 use Illuminate\Auth\Access\Response;
 
 class DatabasePolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -20,8 +23,7 @@ class DatabasePolicy
      */
     public function view(User $user, $database): bool
     {
-        // return $user->teams->contains('id', $database->team()->first()->id);
-        return true;
+        return $this->canViewTeam($user, $this->teamId($database));
     }
 
     /**
@@ -29,8 +31,7 @@ class DatabasePolicy
      */
     public function create(User $user): bool
     {
-        // return $user->isAdmin();
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -38,12 +39,11 @@ class DatabasePolicy
      */
     public function update(User $user, $database)
     {
-        // if ($user->isAdmin() && $user->teams->contains('id', $database->team()->first()->id)) {
-        //    return Response::allow();
-        // }
+        if ($this->canManageTeam($user, $this->teamId($database))) {
+            return Response::allow();
+        }
 
-        // return Response::deny('As a member, you cannot update this database.<br/><br/>You need at least admin or owner permissions.');
-        return true;
+        return Response::deny('As a member, you cannot update this database.<br/><br/>You need at least admin or owner permissions.');
     }
 
     /**
@@ -51,8 +51,7 @@ class DatabasePolicy
      */
     public function delete(User $user, $database): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $database->team()->first()->id);
-        return true;
+        return $this->canManageTeam($user, $this->teamId($database));
     }
 
     /**
@@ -60,8 +59,7 @@ class DatabasePolicy
      */
     public function restore(User $user, $database): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $database->team()->first()->id);
-        return true;
+        return $this->canManageTeam($user, $this->teamId($database));
     }
 
     /**
@@ -69,8 +67,7 @@ class DatabasePolicy
      */
     public function forceDelete(User $user, $database): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $database->team()->first()->id);
-        return true;
+        return $this->canManageTeam($user, $this->teamId($database));
     }
 
     /**
@@ -78,8 +75,7 @@ class DatabasePolicy
      */
     public function manage(User $user, $database): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $database->team()->first()->id);
-        return true;
+        return $this->canManageTeam($user, $this->teamId($database));
     }
 
     /**
@@ -87,8 +83,7 @@ class DatabasePolicy
      */
     public function manageBackups(User $user, $database): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $database->team()->first()->id);
-        return true;
+        return $this->canManageTeam($user, $this->teamId($database));
     }
 
     /**
@@ -96,7 +91,11 @@ class DatabasePolicy
      */
     public function manageEnvironment(User $user, $database): bool
     {
-        // return $user->isAdmin() && $user->teams->contains('id', $database->team()->first()->id);
-        return true;
+        return $this->canManageTeam($user, $this->teamId($database));
+    }
+
+    private function teamId($database): ?int
+    {
+        return data_get($database->team(), 'id');
     }
 }

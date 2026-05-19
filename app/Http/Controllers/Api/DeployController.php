@@ -223,6 +223,11 @@ class DeployController extends Controller
             return response()->json(['message' => 'Deployment not found.'], 404);
         }
 
+        $application = $deployment->application;
+        if (! $application || data_get($application->team(), 'id') !== (int) $teamId) {
+            return response()->json(['message' => 'Deployment not found.'], 404);
+        }
+
         // Check if the deployment belongs to the user's team
         $servers = Server::whereTeamId($teamId)->pluck('id');
         if (! $servers->contains($deployment->server_id)) {

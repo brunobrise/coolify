@@ -43,6 +43,10 @@ class DatabasesController extends Controller
                 'mongo_initdb_root_password',
                 'keydb_password',
                 'clickhouse_admin_password',
+                'mariadb_root_password',
+                'mariadb_password',
+                'mysql_root_password',
+                'mysql_password',
             ]);
         }
 

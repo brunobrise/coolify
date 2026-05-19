@@ -147,39 +147,17 @@ class GetLogs extends Component
             $this->numberOfLines = self::MAX_LOG_LINES;
         }
         if ($this->container) {
-            if ($this->showTimeStamps) {
-                if ($this->server->isSwarm()) {
-                    $command = "docker service logs -n {$this->numberOfLines} -t {$this->container}";
-                    if ($this->server->isNonRoot()) {
-                        $command = parseCommandsByLineForSudo(collect($command), $this->server);
-                        $command = $command[0];
-                    }
-                    $sshCommand = SshMultiplexingHelper::generateSshCommand($this->server, $command);
-                } else {
-                    $command = "docker logs -n {$this->numberOfLines} -t {$this->container}";
-                    if ($this->server->isNonRoot()) {
-                        $command = parseCommandsByLineForSudo(collect($command), $this->server);
-                        $command = $command[0];
-                    }
-                    $sshCommand = SshMultiplexingHelper::generateSshCommand($this->server, $command);
-                }
+            if ($this->server->isSwarm()) {
+                $command = dockerServiceLogsCommand($this->container, $this->numberOfLines, $this->showTimeStamps);
             } else {
-                if ($this->server->isSwarm()) {
-                    $command = "docker service logs -n {$this->numberOfLines} {$this->container}";
-                    if ($this->server->isNonRoot()) {
-                        $command = parseCommandsByLineForSudo(collect($command), $this->server);
-                        $command = $command[0];
-                    }
-                    $sshCommand = SshMultiplexingHelper::generateSshCommand($this->server, $command);
-                } else {
-                    $command = "docker logs -n {$this->numberOfLines} {$this->container}";
-                    if ($this->server->isNonRoot()) {
-                        $command = parseCommandsByLineForSudo(collect($command), $this->server);
-                        $command = $command[0];
-                    }
-                    $sshCommand = SshMultiplexingHelper::generateSshCommand($this->server, $command);
-                }
+                $command = dockerContainerLogsCommand($this->container, $this->numberOfLines, $this->showTimeStamps);
             }
+            if ($this->server->isNonRoot()) {
+                $command = parseCommandsByLineForSudo(collect($command), $this->server);
+                $command = $command[0];
+            }
+            $sshCommand = SshMultiplexingHelper::generateSshCommand($this->server, $command);
+
             // Collect new logs into temporary variable first to prevent flickering
             // (avoids clearing output before new data is ready)
             // Use array accumulation + implode for O(n) instead of O(n²) string concatenation
@@ -220,18 +198,10 @@ class GetLogs extends Component
             return '';
         }
 
-        if ($this->showTimeStamps) {
-            if ($this->server->isSwarm()) {
-                $command = "docker service logs -t {$this->container}";
-            } else {
-                $command = "docker logs -t {$this->container}";
-            }
+        if ($this->server->isSwarm()) {
+            $command = dockerServiceLogsCommand($this->container, null, $this->showTimeStamps);
         } else {
-            if ($this->server->isSwarm()) {
-                $command = "docker service logs {$this->container}";
-            } else {
-                $command = "docker logs {$this->container}";
-            }
+            $command = dockerContainerLogsCommand($this->container, null, $this->showTimeStamps);
         }
 
         if ($this->server->isNonRoot()) {

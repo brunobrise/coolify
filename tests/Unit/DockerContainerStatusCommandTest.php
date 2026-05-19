@@ -65,6 +65,32 @@ it('prevents command injection in docker stop container names', function () {
         ->not->toContain('docker stop --time=30 coolify-deployment;');
 });
 
+it('quotes docker container logs arguments', function () {
+    expect(dockerContainerLogsCommand('coolify-app', 200, timestamps: true, redirectStderr: true))
+        ->toBe("docker logs -n 200 -t 'coolify-app' 2>&1");
+});
+
+it('prevents command injection in docker container logs arguments', function () {
+    $command = dockerContainerLogsCommand('coolify-app; id #', -5);
+
+    expect($command)
+        ->toBe("docker logs -n 1 'coolify-app; id #'")
+        ->not->toContain('docker logs -n -5 coolify-app;');
+});
+
+it('quotes docker service logs arguments', function () {
+    expect(dockerServiceLogsCommand('coolify_proxy', null, timestamps: true))
+        ->toBe("docker service logs -t 'coolify_proxy'");
+});
+
+it('prevents command injection in docker service logs arguments', function () {
+    $command = dockerServiceLogsCommand('coolify_proxy; whoami #', 50);
+
+    expect($command)
+        ->toBe("docker service logs -n 50 'coolify_proxy; whoami #'")
+        ->not->toContain('docker service logs -n 50 coolify_proxy;');
+});
+
 it('quotes docker stop container lists', function () {
     expect(dockerStopContainersCommand(['web-1', 'db-1'], 30))
         ->toBe("docker stop -t 30 'web-1' 'db-1'");

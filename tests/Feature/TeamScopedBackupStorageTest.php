@@ -75,6 +75,11 @@ beforeEach(function () {
 });
 
 describe('Storage/Resources team-scoped backup access', function () {
+    test('user from another team cannot mount storage resources', function () {
+        Livewire::test(StorageResources::class, ['storage' => $this->storageB])
+            ->assertForbidden();
+    });
+
     test('disableS3 on other team backup throws and leaves row unchanged', function () {
         expect(fn () => Livewire::test(StorageResources::class, ['storage' => $this->storageA])
             ->call('disableS3', $this->backupB->id))

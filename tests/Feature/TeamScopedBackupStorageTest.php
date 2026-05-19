@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Storage\Form as StorageForm;
 use App\Livewire\Storage\Resources as StorageResources;
 use App\Models\InstanceSettings;
 use App\Models\S3Storage;
@@ -102,5 +103,35 @@ describe('Storage/Resources team-scoped backup access', function () {
         $this->backupA->refresh();
         expect((bool) $this->backupA->save_s3)->toBeFalse();
         expect($this->backupA->s3_storage_id)->toBeNull();
+    });
+});
+
+describe('Storage/Form credential visibility', function () {
+    test('team owner can hydrate S3 credentials', function () {
+        Livewire::test(StorageForm::class, ['storage' => $this->storageA])
+            ->assertSet('key', 'key-a')
+            ->assertSet('secret', 'secret-a');
+    });
+
+    test('team member can view storage metadata without S3 credentials', function () {
+        $member = User::factory()->create();
+        $member->teams()->attach($this->teamA, ['role' => 'member']);
+
+        $this->actingAs($member);
+        session(['currentTeam' => $this->teamA]);
+
+        Livewire::test(StorageForm::class, ['storage' => $this->storageA])
+            ->assertSet('name', $this->storageA->name)
+            ->assertSet('endpoint', 'https://s3.example.com')
+            ->assertSet('key', '')
+            ->assertSet('secret', '');
+    });
+
+    test('user from another team cannot mount S3 storage form', function () {
+        $this->actingAs($this->userB);
+        session(['currentTeam' => $this->teamB]);
+
+        Livewire::test(StorageForm::class, ['storage' => $this->storageA])
+            ->assertForbidden();
     });
 });

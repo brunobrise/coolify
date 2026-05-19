@@ -101,14 +101,21 @@ class Form extends Component
             $this->endpoint = $this->storage->endpoint;
             $this->bucket = $this->storage->bucket;
             $this->region = $this->storage->region;
-            $this->key = $this->storage->key;
-            $this->secret = $this->storage->secret;
+            if (auth()->user()?->can('update', $this->storage)) {
+                $this->key = $this->storage->key;
+                $this->secret = $this->storage->secret;
+            } else {
+                $this->key = '';
+                $this->secret = '';
+            }
             $this->isUsable = $this->storage->is_usable;
         }
     }
 
     public function mount()
     {
+        $this->authorize('view', $this->storage);
+
         $this->syncData(false);
     }
 

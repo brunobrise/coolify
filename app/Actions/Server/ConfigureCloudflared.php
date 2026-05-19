@@ -40,13 +40,13 @@ class ConfigureCloudflared
             $commands = collect([
                 'mkdir -p /tmp/cloudflared',
                 'cd /tmp/cloudflared',
-                "echo '$docker_compose_yml_base64' | base64 -d | tee docker-compose.yml > /dev/null",
+                writeBase64FileCommand('docker-compose.yml', $docker_compose_yml_base64),
                 'echo Pulling latest Cloudflare Tunnel image.',
                 'docker compose pull',
                 'echo Stopping existing Cloudflare Tunnel container.',
-                'docker rm -f coolify-cloudflared || true',
+                dockerRemoveContainerCommand('coolify-cloudflared').' || true',
                 'echo Starting new Cloudflare Tunnel container.',
-                'docker compose up --wait --wait-timeout 15 --remove-orphans || docker logs coolify-cloudflared',
+                'docker compose up --wait --wait-timeout 15 --remove-orphans || '.dockerContainerLogsCommand('coolify-cloudflared', null),
             ]);
 
             return remote_process($commands, $server, callEventOnFinish: 'CloudflareTunnelChanged', callEventData: [

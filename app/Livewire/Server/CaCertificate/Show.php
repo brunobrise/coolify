@@ -119,16 +119,17 @@ class Show extends Component
     private function writeCertificateToServer()
     {
         $caCertPath = config('constants.coolify.base_config_path').'/ssl/';
+        $caCertFile = "{$caCertPath}coolify-ca.crt";
 
         $base64Cert = base64_encode($this->certificateContent);
 
         $commands = collect([
-            "mkdir -p $caCertPath",
-            "chown -R 9999:root $caCertPath",
-            "chmod -R 700 $caCertPath",
-            "rm -rf $caCertPath/coolify-ca.crt",
-            "echo '{$base64Cert}' | base64 -d | tee $caCertPath/coolify-ca.crt > /dev/null",
-            "chmod 644 $caCertPath/coolify-ca.crt",
+            'mkdir -p '.escapeshellarg($caCertPath),
+            'chown -R 9999:root '.escapeshellarg($caCertPath),
+            'chmod -R 700 '.escapeshellarg($caCertPath),
+            'rm -f '.escapeshellarg($caCertFile),
+            writeBase64FileCommand($caCertFile, $base64Cert),
+            'chmod 644 '.escapeshellarg($caCertFile),
         ]);
 
         remote_process($commands, $this->server);

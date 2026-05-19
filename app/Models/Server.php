@@ -435,7 +435,7 @@ class Server extends BaseModel
             $conf = $banner.$conf;
             $base64 = base64_encode($conf);
             instant_remote_process([
-                "echo '$base64' | base64 -d | tee $default_redirect_file > /dev/null",
+                writeBase64FileCommand($default_redirect_file, $base64),
             ], $this);
         }
 
@@ -572,15 +572,15 @@ class Server extends BaseModel
 
                 $base64 = base64_encode($yaml);
                 instant_remote_process([
-                    "mkdir -p $dynamic_config_path",
-                    "echo '$base64' | base64 -d | tee $file > /dev/null",
+                    'mkdir -p '.escapeshellarg($dynamic_config_path),
+                    writeBase64FileCommand($file, $base64),
                 ], $this);
             }
         } elseif ($this->proxyType() === 'CADDY') {
             $file = "$dynamic_config_path/coolify.caddy";
             if (empty($settings->fqdn) || (isCloud() && $this->id !== 0) || ! $this->isLocalhost()) {
                 instant_remote_process([
-                    "rm -f $file",
+                    'rm -f '.escapeshellarg($file),
                 ], $this);
                 $this->reloadCaddy();
             } else {
@@ -599,7 +599,7 @@ $schema://$host {
 }";
                 $base64 = base64_encode($caddy_file);
                 instant_remote_process([
-                    "echo '$base64' | base64 -d | tee $file > /dev/null",
+                    writeBase64FileCommand($file, $base64),
                 ], $this);
                 $this->reloadCaddy();
             }
@@ -1542,16 +1542,17 @@ $schema://$host {
             if ($caCertificate) {
                 $certificateContent = $caCertificate->ssl_certificate;
                 $caCertPath = config('constants.coolify.base_config_path').'/ssl/';
+                $caCertFile = "{$caCertPath}coolify-ca.crt";
 
                 $base64Cert = base64_encode($certificateContent);
 
                 $commands = collect([
-                    "mkdir -p $caCertPath",
-                    "chown -R 9999:root $caCertPath",
-                    "chmod -R 700 $caCertPath",
-                    "rm -rf $caCertPath/coolify-ca.crt",
-                    "echo '{$base64Cert}' | base64 -d | tee $caCertPath/coolify-ca.crt > /dev/null",
-                    "chmod 644 $caCertPath/coolify-ca.crt",
+                    'mkdir -p '.escapeshellarg($caCertPath),
+                    'chown -R 9999:root '.escapeshellarg($caCertPath),
+                    'chmod -R 700 '.escapeshellarg($caCertPath),
+                    'rm -f '.escapeshellarg($caCertFile),
+                    writeBase64FileCommand($caCertFile, $base64Cert),
+                    'chmod 644 '.escapeshellarg($caCertFile),
                 ]);
 
                 instant_remote_process($commands, $this, false);

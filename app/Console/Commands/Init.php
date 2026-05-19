@@ -212,19 +212,19 @@ class Init extends Command
                 $removeNetworks = $allNetworks->diff($networks);
                 $commands = collect();
                 foreach ($removeNetworks as $network) {
-                    $safe = escapeshellarg($network);
-                    $out = instant_remote_process(["docker network inspect -f json {$safe} | jq '.[].Containers | if . == {} then null else . end'"], $server, false);
+                    $inspectCommand = 'docker network inspect -f json '.escapeshellarg($network)." | jq '.[].Containers | if . == {} then null else . end'";
+                    $out = instant_remote_process([$inspectCommand], $server, false);
                     if (empty($out)) {
-                        $commands->push("docker network disconnect {$safe} coolify-proxy >/dev/null 2>&1 || true");
-                        $commands->push("docker network rm {$safe} >/dev/null 2>&1 || true");
+                        $commands->push(dockerNetworkDisconnectCommand($network, 'coolify-proxy').' >/dev/null 2>&1 || true');
+                        $commands->push(dockerNetworkRemoveCommand($network).' >/dev/null 2>&1 || true');
                     } else {
                         $data = collect(json_decode($out, true));
                         if ($data->count() === 1) {
                             // If only coolify-proxy itself is connected to that network (it should not be possible, but who knows)
                             $isCoolifyProxyItself = data_get($data->first(), 'Name') === 'coolify-proxy';
                             if ($isCoolifyProxyItself) {
-                                $commands->push("docker network disconnect {$safe} coolify-proxy >/dev/null 2>&1 || true");
-                                $commands->push("docker network rm {$safe} >/dev/null 2>&1 || true");
+                                $commands->push(dockerNetworkDisconnectCommand($network, 'coolify-proxy').' >/dev/null 2>&1 || true');
+                                $commands->push(dockerNetworkRemoveCommand($network).' >/dev/null 2>&1 || true');
                             }
                         }
                     }
@@ -253,7 +253,7 @@ class Init extends Command
                             'save_s3' => false,
                             'frequency' => '0 0 * * *',
                             'database_id' => $database->id,
-                            'database_type' => \App\Models\StandalonePostgresql::class,
+                            'database_type' => StandalonePostgresql::class,
                             'team_id' => 0,
                         ]);
                     }

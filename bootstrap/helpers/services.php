@@ -139,17 +139,18 @@ function replaceVariables(string $variable): Stringable
 function getFilesystemVolumesFromServer(ServiceApplication|ServiceDatabase|Application $oneService, bool $isInit = false)
 {
     try {
-        if ($oneService->getMorphClass() === \App\Models\Application::class) {
+        if ($oneService->getMorphClass() === Application::class) {
             $workdir = $oneService->workdir();
             $server = $oneService->destination->server;
         } else {
             $workdir = $oneService->service->workdir();
             $server = $oneService->service->server;
         }
+        $escapedWorkdir = escapedServiceFileStoragePath($workdir, 'service workdir');
         $fileVolumes = $oneService->fileStorages()->get();
         $commands = collect([
-            "mkdir -p $workdir > /dev/null 2>&1 || true",
-            "cd $workdir",
+            "mkdir -p {$escapedWorkdir} > /dev/null 2>&1 || true",
+            "cd {$escapedWorkdir}",
         ]);
         instant_remote_process($commands, $server);
         foreach ($fileVolumes as $fileVolume) {
@@ -161,14 +162,16 @@ function getFilesystemVolumesFromServer(ServiceApplication|ServiceDatabase|Appli
             } else {
                 $fileLocation = $path;
             }
+            $fileLocation = $fileLocation->value();
+            $escapedFileLocation = escapedServiceFileStoragePath($fileLocation, 'service file storage path');
             // Exists and is a file
-            $isFile = instant_remote_process(["test -f $fileLocation && echo OK || echo NOK"], $server);
+            $isFile = instant_remote_process(["test -f {$escapedFileLocation} && echo OK || echo NOK"], $server);
             // Exists and is a directory
-            $isDir = instant_remote_process(["test -d $fileLocation && echo OK || echo NOK"], $server);
+            $isDir = instant_remote_process(["test -d {$escapedFileLocation} && echo OK || echo NOK"], $server);
 
             if ($isFile === 'OK') {
                 // If its a file & exists
-                $filesystemContent = instant_remote_process(["cat $fileLocation"], $server);
+                $filesystemContent = instant_remote_process(["cat {$escapedFileLocation}"], $server);
                 if ($fileVolume->is_based_on_git) {
                     $fileVolume->content = $filesystemContent;
                 }
@@ -186,35 +189,44 @@ function getFilesystemVolumesFromServer(ServiceApplication|ServiceDatabase|Appli
                 $fileVolume->save();
                 $content = base64_encode($content);
                 $dir = str($fileLocation)->dirname();
+                $escapedDir = escapedServiceFileStoragePath($dir->value(), 'service file storage directory');
                 instant_remote_process([
-                    "mkdir -p $dir",
-                    "echo '$content' | base64 -d | tee $fileLocation",
+                    "mkdir -p {$escapedDir}",
+                    "echo '$content' | base64 -d | tee {$escapedFileLocation}",
                 ], $server);
             } elseif ($isFile === 'NOK' && $isDir === 'NOK' && $fileVolume->is_directory && $isInit) {
                 // Does not exists (no dir or file), flagged as directory, is init
                 $fileVolume->content = null;
                 $fileVolume->is_directory = true;
                 $fileVolume->save();
-                instant_remote_process(["mkdir -p $fileLocation"], $server);
+                instant_remote_process(["mkdir -p {$escapedFileLocation}"], $server);
             } elseif ($isFile === 'NOK' && $isDir === 'NOK' && ! $fileVolume->is_directory && $isInit && is_null($content)) {
                 // Does not exists (no dir or file), not flagged as directory, is init, has no content => create directory
                 $fileVolume->content = null;
                 $fileVolume->is_directory = true;
                 $fileVolume->save();
-                instant_remote_process(["mkdir -p $fileLocation"], $server);
+                instant_remote_process(["mkdir -p {$escapedFileLocation}"], $server);
             }
         }
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         return handleError($e);
     }
 }
+
+function escapedServiceFileStoragePath(string $path, string $context = 'service file storage path'): string
+{
+    validateShellSafePath($path, $context);
+
+    return escapeshellarg($path);
+}
+
 function updateCompose(ServiceApplication|ServiceDatabase $resource)
 {
     try {
         $name = data_get($resource, 'name');
         $dockerComposeRaw = data_get($resource, 'service.docker_compose_raw');
         if (! $dockerComposeRaw) {
-            throw new \Exception('No compose file found or not a valid YAML file.');
+            throw new Exception('No compose file found or not a valid YAML file.');
         }
         $dockerCompose = Yaml::parse($dockerComposeRaw);
 
@@ -396,7 +408,7 @@ function updateCompose(ServiceApplication|ServiceDatabase $resource)
                 }
             }
         }
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         return handleError($e);
     }
 }
@@ -495,7 +507,7 @@ function applyServiceApplicationPrerequisites(Service $service): void
                 }
             }
         }
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         // Log error but don't throw - prerequisites are nice-to-have, not critical
         Log::error('Failed to apply service application prerequisites', [
             'service_id' => $service->id,

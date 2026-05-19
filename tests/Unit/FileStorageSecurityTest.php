@@ -144,6 +144,16 @@ test('file storage accepts relative dot-prefixed paths', function () {
         ->not->toThrow(Exception::class);
 });
 
+test('service file storage shell path helper quotes safe paths', function () {
+    expect(escapedServiceFileStoragePath('/data/coolify/services/test/config file.yaml'))
+        ->toBe("'/data/coolify/services/test/config file.yaml'");
+});
+
+test('service file storage shell path helper rejects command injection', function () {
+    expect(fn () => escapedServiceFileStoragePath('/data/coolify/services/test/config.yaml; id'))
+        ->toThrow(Exception::class);
+});
+
 test('file storage quotes owner and mode permission commands', function () {
     $volume = new LocalFileVolume;
     $volume->chown = '1000:1000';

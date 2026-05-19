@@ -22,7 +22,7 @@ class InviteLink extends Component
 
     protected $rules = [
         'email' => 'required|email',
-        'role' => 'required|string',
+        'role' => 'required|string|in:member,admin,owner',
     ];
 
     public function mount()

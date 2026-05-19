@@ -4,15 +4,18 @@ namespace App\Policies;
 
 use App\Models\CloudProviderToken;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 
 class CloudProviderTokenPolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin();
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -20,7 +23,7 @@ class CloudProviderTokenPolicy
      */
     public function view(User $user, CloudProviderToken $cloudProviderToken): bool
     {
-        return $user->isAdmin();
+        return $this->canManageTeam($user, $cloudProviderToken->team_id);
     }
 
     /**
@@ -28,7 +31,7 @@ class CloudProviderTokenPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -36,7 +39,7 @@ class CloudProviderTokenPolicy
      */
     public function update(User $user, CloudProviderToken $cloudProviderToken): bool
     {
-        return $user->isAdmin();
+        return $this->canManageTeam($user, $cloudProviderToken->team_id);
     }
 
     /**
@@ -44,7 +47,7 @@ class CloudProviderTokenPolicy
      */
     public function delete(User $user, CloudProviderToken $cloudProviderToken): bool
     {
-        return $user->isAdmin();
+        return $this->canManageTeam($user, $cloudProviderToken->team_id);
     }
 
     /**
@@ -52,7 +55,7 @@ class CloudProviderTokenPolicy
      */
     public function restore(User $user, CloudProviderToken $cloudProviderToken): bool
     {
-        return $user->isAdmin();
+        return false;
     }
 
     /**
@@ -60,6 +63,6 @@ class CloudProviderTokenPolicy
      */
     public function forceDelete(User $user, CloudProviderToken $cloudProviderToken): bool
     {
-        return $user->isAdmin();
+        return false;
     }
 }

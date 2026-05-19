@@ -35,7 +35,7 @@ class StopApplication
                 }
 
                 if ($server->isSwarm()) {
-                    instant_remote_process(["docker stack rm {$application->uuid}"], $server);
+                    instant_remote_process([dockerStackRemoveCommand($application->uuid)], $server);
 
                     return;
                 }
@@ -49,8 +49,8 @@ class StopApplication
 
                 foreach ($containersToStop as $containerName) {
                     instant_remote_process(command: [
-                        "docker stop --time=$timeout $containerName",
-                        "docker rm -f $containerName",
+                        dockerStopContainerCommand($containerName, $timeout),
+                        dockerRemoveContainerCommand($containerName),
                     ], server: $server, throwError: false);
                 }
 

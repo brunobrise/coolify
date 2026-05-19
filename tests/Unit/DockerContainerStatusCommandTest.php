@@ -65,6 +65,32 @@ it('prevents command injection in docker stop container names', function () {
         ->not->toContain('docker stop --time=30 coolify-deployment;');
 });
 
+it('quotes docker stop container lists', function () {
+    expect(dockerStopContainersCommand(['web-1', 'db-1'], 30))
+        ->toBe("docker stop -t 30 'web-1' 'db-1'");
+});
+
+it('prevents command injection in docker stop container lists', function () {
+    $command = dockerStopContainersCommand(['web-1; id #', 'db-1'], 30);
+
+    expect($command)
+        ->toBe("docker stop -t 30 'web-1; id #' 'db-1'")
+        ->not->toContain('docker stop -t 30 web-1;');
+});
+
+it('quotes docker remove container lists', function () {
+    expect(dockerRemoveContainersCommand(['web-1', 'db-1']))
+        ->toBe("docker rm -f 'web-1' 'db-1'");
+});
+
+it('prevents command injection in docker remove container lists', function () {
+    $command = dockerRemoveContainersCommand(['web-1; id #', 'db-1']);
+
+    expect($command)
+        ->toBe("docker rm -f 'web-1; id #' 'db-1'")
+        ->not->toContain('docker rm -f web-1;');
+});
+
 it('quotes docker stack names', function () {
     expect(dockerStackRemoveCommand('app-pr-1'))
         ->toBe("docker stack rm 'app-pr-1'");

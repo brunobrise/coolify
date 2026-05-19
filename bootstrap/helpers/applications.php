@@ -14,7 +14,15 @@ use Visus\Cuid2\Cuid2;
 
 function queue_application_deployment(Application $application, string $deployment_uuid, ?int $pull_request_id = 0, ?string $commit = null, bool $force_rebuild = false, bool $is_webhook = false, bool $is_api = false, bool $restart_only = false, ?string $git_type = null, bool $no_questions_asked = false, ?Server $server = null, ?StandaloneDocker $destination = null, bool $only_this_server = false, bool $rollback = false, ?string $docker_registry_image_tag = null)
 {
+    $requestedCommit = $commit;
     $commit = $commit ?: ($application->git_commit_sha ?: 'HEAD');
+    if ($is_webhook && filled($requestedCommit) && ! is_valid_webhook_commit($requestedCommit)) {
+        return [
+            'status' => 'skipped',
+            'message' => 'Webhook commit was rejected.',
+        ];
+    }
+
     $application_id = $application->id;
     $deployment_link = Url::fromString($application->link()."/deployment/{$deployment_uuid}");
     $deployment_url = $deployment_link->getPath();
@@ -106,6 +114,11 @@ function queue_application_deployment(Application $application, string $deployme
         'message' => 'Deployment queued.',
         'deployment_uuid' => $deployment_uuid,
     ];
+}
+
+function is_valid_webhook_commit(string $commit): bool
+{
+    return $commit === 'HEAD' || preg_match('/\A[0-9a-f]{7,64}\z/i', $commit) === 1;
 }
 function force_start_deployment(ApplicationDeploymentQueue $deployment)
 {

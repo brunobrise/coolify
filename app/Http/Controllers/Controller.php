@@ -98,22 +98,32 @@ class Controller extends BaseController
     {
         $token = request()->get('token');
         if ($token) {
-            $decrypted = Crypt::decryptString($token);
-            $email = str($decrypted)->before('@@@');
-            $password = str($decrypted)->after('@@@');
+            try {
+                $payload = json_decode(Crypt::decryptString($token), true, flags: JSON_THROW_ON_ERROR);
+            } catch (\Throwable) {
+                return redirect()->route('login')->with('error', 'Invalid credentials.');
+            }
+
+            $email = Str::lower((string) data_get($payload, 'email'));
+            $password = (string) data_get($payload, 'password');
+            $expiresAt = (int) data_get($payload, 'expires_at', 0);
+
+            if (blank($email) || blank($password) || $expiresAt < now()->timestamp) {
+                return redirect()->route('login')->with('error', 'Invalid credentials.');
+            }
+
             $user = User::whereEmail($email)->first();
             if (! $user) {
                 return redirect()->route('login');
             }
+            $invitation = TeamInvitation::whereEmail($email)->first();
+            if (! $invitation || ! $invitation->isValid()) {
+                return redirect()->route('login')->with('error', 'Invalid credentials.');
+            }
             if (Hash::check($password, $user->password)) {
-                $invitation = TeamInvitation::whereEmail($email);
-                if ($invitation->exists()) {
-                    $team = $invitation->first()->team;
-                    $user->teams()->attach($team->id, ['role' => $invitation->first()->role]);
-                    $invitation->delete();
-                } else {
-                    $team = $user->teams()->first();
-                }
+                $team = $invitation->team;
+                $user->teams()->syncWithoutDetaching([$team->id => ['role' => $invitation->role]]);
+                $invitation->delete();
                 Auth::login($user);
                 session(['currentTeam' => $team]);
 

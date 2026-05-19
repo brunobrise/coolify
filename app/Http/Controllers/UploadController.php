@@ -37,7 +37,7 @@ class UploadController extends BaseController
         $databaseIdentifier = request()->route('databaseUuid');
         $resource = getResourceByUuid($databaseIdentifier, data_get(auth()->user()->currentTeam(), 'id'));
         if (is_null($resource)) {
-            return response()->json(['error' => 'You do not have permission for this database'], 500);
+            return response()->json(['error' => 'You do not have permission for this database'], 404);
         }
 
         $chunk = $request->file('file');

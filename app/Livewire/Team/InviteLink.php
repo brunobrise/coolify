@@ -73,7 +73,7 @@ class InviteLink extends Component
                     'password' => Hash::make($password),
                     'force_password_reset' => true,
                 ]);
-                $token = Crypt::encryptString("{$user->email}@@@$password");
+                $token = $this->newUserInviteToken($user, $password);
                 $link = route('auth.link', ['token' => $token]);
             }
             $invitation = TeamInvitation::whereEmail($this->email)->first();
@@ -118,5 +118,16 @@ class InviteLink extends Component
 
             return handleError(error: $e, livewire: $this, customErrorMessage: $error_message);
         }
+    }
+
+    private function newUserInviteToken(User $user, string $password): string
+    {
+        return Crypt::encryptString(json_encode([
+            'email' => $user->email,
+            'password' => $password,
+            'expires_at' => now()
+                ->addDays((int) config('constants.invitation.link.expiration_days'))
+                ->timestamp,
+        ], JSON_THROW_ON_ERROR));
     }
 }

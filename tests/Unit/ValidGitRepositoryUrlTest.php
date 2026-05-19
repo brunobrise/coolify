@@ -1,6 +1,7 @@
 <?php
 
 use App\Rules\ValidGitRepositoryUrl;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Tests\TestCase;
 
@@ -354,4 +355,23 @@ it('provides meaningful error messages', function () {
         expect($validator->fails())->toBeTrue("Should fail for: {$testCase['url']}");
         expect($validator->errors()->first('url'))->toContain($testCase['expectedError']);
     }
+});
+
+it('redacts sensitive repository URL parts before logging validation failures', function () {
+    Log::spy();
+
+    $secret = 'repo-token-123';
+    $url = "https://user:{$secret}@github.com/user/repo?token={$secret}";
+
+    $validator = Validator::make(['url' => $url], ['url' => new ValidGitRepositoryUrl]);
+
+    expect($validator->fails())->toBeTrue();
+
+    Log::shouldHaveReceived('warning')->with(
+        'Git repository URL validation failed - dangerous character',
+        Mockery::on(function (array $context) use ($secret): bool {
+            return $context['url'] === 'https://github.com/[redacted]'
+                && ! str_contains(json_encode($context), $secret);
+        })
+    );
 });

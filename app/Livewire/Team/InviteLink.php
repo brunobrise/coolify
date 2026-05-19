@@ -73,10 +73,10 @@ class InviteLink extends Component
                     'password' => Hash::make($password),
                     'force_password_reset' => true,
                 ]);
-                $token = $this->newUserInviteToken($user, $password);
+                $token = $this->newUserInviteToken($user, $password, (string) $uuid);
                 $link = route('auth.link', ['token' => $token]);
             }
-            $invitation = TeamInvitation::whereEmail($this->email)->first();
+            $invitation = TeamInvitation::ownedByCurrentTeam()->whereEmail($this->email)->first();
             if (! is_null($invitation)) {
                 $invitationValid = $invitation->isValid();
                 if ($invitationValid) {
@@ -120,11 +120,12 @@ class InviteLink extends Component
         }
     }
 
-    private function newUserInviteToken(User $user, string $password): string
+    private function newUserInviteToken(User $user, string $password, string $invitationUuid): string
     {
         return Crypt::encryptString(json_encode([
             'email' => $user->email,
             'password' => $password,
+            'invitation_uuid' => $invitationUuid,
             'expires_at' => now()
                 ->addDays((int) config('constants.invitation.link.expiration_days'))
                 ->timestamp,

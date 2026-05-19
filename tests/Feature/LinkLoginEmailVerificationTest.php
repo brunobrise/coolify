@@ -137,13 +137,50 @@ describe('invitation link login', function () {
 
         expect(auth()->check())->toBeFalse();
     });
+
+    test('uses invitation uuid from invite login tokens when email has multiple invitations', function () {
+        $firstTeam = Team::factory()->create();
+        $secondTeam = Team::factory()->create();
+        $password = 'test-password-123';
+        $user = User::factory()->create([
+            'email' => 'multi-invitee@example.com',
+            'password' => Hash::make($password),
+        ]);
+        $firstInvitation = TeamInvitation::create([
+            'team_id' => $firstTeam->id,
+            'uuid' => 'first-invite',
+            'email' => $user->email,
+            'role' => 'admin',
+            'link' => 'https://example.com/invite/first-invite',
+            'via' => 'link',
+        ]);
+        $secondInvitation = TeamInvitation::create([
+            'team_id' => $secondTeam->id,
+            'uuid' => 'second-invite',
+            'email' => $user->email,
+            'role' => 'member',
+            'link' => 'https://example.com/invite/second-invite',
+            'via' => 'link',
+        ]);
+
+        $token = inviteLoginToken($user->email, $password, invitationUuid: $secondInvitation->uuid);
+
+        $this->get(route('auth.link', ['token' => $token]));
+
+        expect(auth()->id())->toBe($user->id)
+            ->and($user->fresh()->teams()->where('team_id', $secondTeam->id)->exists())->toBeTrue()
+            ->and($user->fresh()->teams()->where('team_id', $firstTeam->id)->exists())->toBeFalse()
+            ->and(TeamInvitation::whereKey($secondInvitation->id)->exists())->toBeFalse()
+            ->and(TeamInvitation::whereKey($firstInvitation->id)->exists())->toBeTrue();
+    });
 });
 
-function inviteLoginToken(string $email, string $password, ?int $expiresAt = null): string
+function inviteLoginToken(string $email, string $password, ?int $expiresAt = null, ?string $invitationUuid = null): string
 {
     return Crypt::encryptString(json_encode([
         'email' => $email,
         'password' => $password,
+        'invitation_uuid' => $invitationUuid,
         'expires_at' => $expiresAt ?? now()->addDay()->timestamp,
     ], JSON_THROW_ON_ERROR));
 }

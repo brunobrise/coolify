@@ -4,6 +4,7 @@ use App\Actions\Proxy\SaveProxyConfiguration;
 use App\Enums\ProxyTypes;
 use App\Models\Application;
 use App\Models\Server;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Yaml\Yaml;
 
@@ -109,20 +110,18 @@ function connectProxyToNetworks(Server $server)
     ['networks' => $networks] = collectDockerNetworksByServer($server);
     if ($server->isSwarm()) {
         $commands = $networks->map(function ($network) {
-            $safe = escapeshellarg($network);
             return [
-                "docker network ls --format '{{.Name}}' | grep '^{$network}$' >/dev/null || docker network create --driver overlay --attachable {$safe} >/dev/null",
-                "docker network connect {$safe} coolify-proxy >/dev/null 2>&1 || true",
-                "echo 'Successfully connected coolify-proxy to {$safe} network.'",
+                dockerNetworkExistsCommand($network).' >/dev/null || '.dockerNetworkCreateCommand($network, attachable: true, driver: 'overlay').' >/dev/null',
+                dockerNetworkConnectCommand($network, 'coolify-proxy').' >/dev/null 2>&1 || true',
+                'echo '.escapeshellarg("Successfully connected coolify-proxy to {$network} network."),
             ];
         });
     } else {
         $commands = $networks->map(function ($network) {
-            $safe = escapeshellarg($network);
             return [
-                "docker network ls --format '{{.Name}}' | grep '^{$network}$' >/dev/null || docker network create --attachable {$safe} >/dev/null",
-                "docker network connect {$safe} coolify-proxy >/dev/null 2>&1 || true",
-                "echo 'Successfully connected coolify-proxy to {$safe} network.'",
+                dockerNetworkExistsCommand($network).' >/dev/null || '.dockerNetworkCreateCommand($network, attachable: true).' >/dev/null',
+                dockerNetworkConnectCommand($network, 'coolify-proxy').' >/dev/null 2>&1 || true',
+                'echo '.escapeshellarg("Successfully connected coolify-proxy to {$network} network."),
             ];
         });
     }
@@ -135,7 +134,7 @@ function connectProxyToNetworks(Server $server)
  * This must be called BEFORE docker compose up since the compose file declares networks as external.
  *
  * @param  Server  $server  The server to ensure networks on
- * @return \Illuminate\Support\Collection Commands to create networks if they don't exist
+ * @return Collection Commands to create networks if they don't exist
  */
 function ensureProxyNetworksExist(Server $server)
 {
@@ -143,18 +142,16 @@ function ensureProxyNetworksExist(Server $server)
 
     if ($server->isSwarm()) {
         $commands = $networks->map(function ($network) {
-            $safe = escapeshellarg($network);
             return [
-                "echo 'Ensuring network {$safe} exists...'",
-                "docker network ls --format '{{.Name}}' | grep -q '^{$network}$' || docker network create --driver overlay --attachable {$safe}",
+                'echo '.escapeshellarg("Ensuring network {$network} exists..."),
+                dockerNetworkExistsCommand($network).' >/dev/null || '.dockerNetworkCreateCommand($network, attachable: true, driver: 'overlay'),
             ];
         });
     } else {
         $commands = $networks->map(function ($network) {
-            $safe = escapeshellarg($network);
             return [
-                "echo 'Ensuring network {$safe} exists...'",
-                "docker network ls --format '{{.Name}}' | grep -q '^{$network}$' || docker network create --attachable {$safe}",
+                'echo '.escapeshellarg("Ensuring network {$network} exists..."),
+                dockerNetworkExistsCommand($network).' >/dev/null || '.dockerNetworkCreateCommand($network, attachable: true),
             ];
         });
     }
@@ -211,7 +208,7 @@ function extractCustomProxyCommands(Server $server, string $existing_config): ar
                 $custom_commands[] = $command;
             }
         }
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         // If we can't parse the config, return empty array
         // Silently fail to avoid breaking the proxy regeneration
     }
@@ -432,7 +429,7 @@ function getExactTraefikVersionFromContainer(Server $server): ?string
         Log::debug("getExactTraefikVersionFromContainer: Server '{$server->name}' (ID: {$server->id}) - Could not detect exact version");
 
         return null;
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         Log::error("getExactTraefikVersionFromContainer: Server '{$server->name}' (ID: {$server->id}) - Error: ".$e->getMessage());
 
         return null;
@@ -456,7 +453,7 @@ function getTraefikVersionFromDockerCompose(Server $server): ?string
         Log::debug("getTraefikVersionFromDockerCompose: Server '{$server->name}' (ID: {$server->id}) - Falling back to image tag detection");
 
         $containerName = 'coolify-proxy';
-        $inspectCommand = "docker inspect {$containerName} --format '{{.Config.Image}}' 2>/dev/null";
+        $inspectCommand = 'docker inspect '.escapeshellarg($containerName)." --format '{{.Config.Image}}' 2>/dev/null";
 
         $image = instant_remote_process([$inspectCommand], $server, false);
 
@@ -479,7 +476,7 @@ function getTraefikVersionFromDockerCompose(Server $server): ?string
         Log::debug("getTraefikVersionFromDockerCompose: Server '{$server->name}' (ID: {$server->id}) - Image format doesn't match expected pattern: {$image}");
 
         return null;
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         Log::error("getTraefikVersionFromDockerCompose: Server '{$server->name}' (ID: {$server->id}) - Error: ".$e->getMessage());
 
         return null;

@@ -26,6 +26,19 @@ it('prevents command injection in docker ps name filters', function () {
         ->not->toContain("--filter 'name=coolify-deployment' --format '{{.ID}}';");
 });
 
+it('quotes docker ps name existence checks', function () {
+    expect(dockerPsNameExistsCommand('coolify-proxy'))
+        ->toBe("docker ps -a --format '{{.Names}}' | grep -Fx -- 'coolify-proxy'");
+});
+
+it('prevents regex and shell injection in docker ps name existence checks', function () {
+    $command = dockerPsNameExistsCommand('coolify-proxy.*; id #');
+
+    expect($command)
+        ->toBe("docker ps -a --format '{{.Names}}' | grep -Fx -- 'coolify-proxy.*; id #'")
+        ->not->toContain('grep -q "^coolify-proxy.*;');
+});
+
 it('quotes swarm service status filters', function () {
     expect(dockerServiceStatusCommand('coolify-proxy'))
         ->toBe("docker service ls --filter 'name=coolify-proxy' --format '{{json .}}'");
@@ -180,6 +193,19 @@ it('prevents command injection in docker network inspect arguments', function ()
     expect($command)
         ->toBe("docker network inspect 'app-network; id #'")
         ->not->toContain('docker network inspect app-network;');
+});
+
+it('quotes docker network existence checks', function () {
+    expect(dockerNetworkExistsCommand('app-network'))
+        ->toBe("docker network ls --format '{{.Name}}' | grep -Fx -- 'app-network'");
+});
+
+it('prevents regex and shell injection in docker network existence checks', function () {
+    $command = dockerNetworkExistsCommand('app-network.*; id #');
+
+    expect($command)
+        ->toBe("docker network ls --format '{{.Name}}' | grep -Fx -- 'app-network.*; id #'")
+        ->not->toContain("grep '^app-network.*;");
 });
 
 it('quotes docker network remove arguments', function () {

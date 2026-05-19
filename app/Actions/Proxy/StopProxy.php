@@ -24,11 +24,11 @@ class StopProxy
             }
 
             instant_remote_process(command: [
-                "docker stop -t=$timeout $containerName 2>/dev/null || true",
-                "docker rm -f $containerName 2>/dev/null || true",
+                dockerStopContainerCommand($containerName, $timeout).' 2>/dev/null || true',
+                dockerRemoveContainerCommand($containerName).' 2>/dev/null || true',
                 '# Wait for container to be fully removed',
                 'for i in {1..10}; do',
-                "    if ! docker ps -a --format \"{{.Names}}\" | grep -q \"^$containerName$\"; then",
+                '    if ! '.dockerPsNameExistsCommand($containerName).' >/dev/null; then',
                 '        break',
                 '    fi',
                 '    sleep 1',

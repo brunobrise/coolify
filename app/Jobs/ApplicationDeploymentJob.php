@@ -4830,7 +4830,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
         // (matches the pattern used for health_check_command at line ~2824).
         $preCommand = str_replace(["\r\n", "\r", "\n"], ' ', $this->application->pre_deployment_command);
         $cmd = "sh -c '".str_replace("'", "'\''", $preCommand)."'";
-        $exec = "docker exec {$containerName} {$cmd}";
+        $exec = 'docker exec '.escapeshellarg($containerName).' '.$cmd;
         $this->execute_remote_command(
             [
                 'command' => $exec,
@@ -4868,7 +4868,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
         // Newlines are normalized to spaces to prevent injection via SSH heredoc transport.
         $postCommand = str_replace(["\r\n", "\r", "\n"], ' ', $this->application->post_deployment_command);
         $cmd = "sh -c '".str_replace("'", "'\''", $postCommand)."'";
-        $exec = "docker exec {$containerName} {$cmd}";
+        $exec = 'docker exec '.escapeshellarg($containerName).' '.$cmd;
         try {
             $this->execute_remote_command(
                 [

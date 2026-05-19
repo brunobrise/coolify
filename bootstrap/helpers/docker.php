@@ -175,6 +175,24 @@ function dockerStopContainerCommand(string $container_id, int $timeout): string
     return 'docker stop --time='.(int) $timeout.' '.escapeshellarg($container_id);
 }
 
+function dockerStopContainersCommand(array $container_ids, int $timeout): string
+{
+    $containers = collect($container_ids)
+        ->map(fn ($container_id) => escapeshellarg((string) $container_id))
+        ->implode(' ');
+
+    return 'docker stop -t '.(int) $timeout.' '.$containers;
+}
+
+function dockerRemoveContainersCommand(array $container_ids): string
+{
+    $containers = collect($container_ids)
+        ->map(fn ($container_id) => escapeshellarg((string) $container_id))
+        ->implode(' ');
+
+    return 'docker rm -f '.$containers;
+}
+
 function dockerStackRemoveCommand(string $stack_name): string
 {
     return 'docker stack rm '.escapeshellarg($stack_name);

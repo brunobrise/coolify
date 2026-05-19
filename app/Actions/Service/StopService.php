@@ -66,9 +66,8 @@ class StopService
     {
         $timeout = count($containersToStop) > 5 ? 10 : 30;
         $commands = [];
-        $containerList = implode(' ', $containersToStop);
-        $commands[] = "docker stop -t $timeout $containerList";
-        $commands[] = "docker rm -f $containerList";
+        $commands[] = dockerStopContainersCommand($containersToStop, $timeout);
+        $commands[] = dockerRemoveContainersCommand($containersToStop);
         instant_remote_process(
             command: $commands,
             server: $server,

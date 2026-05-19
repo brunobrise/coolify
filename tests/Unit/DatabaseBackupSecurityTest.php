@@ -1,5 +1,8 @@
 <?php
 
+use App\Jobs\DatabaseBackupJob;
+use App\Models\ScheduledDatabaseBackup;
+
 /**
  * Database Backup Security Tests
  *
@@ -9,6 +12,23 @@
  * Related Issues: #2 in security_issues.md
  * Related Files: app/Jobs/DatabaseBackupJob.php, app/Livewire/Project/Database/BackupEdit.php
  */
+function newDatabaseBackupJobForSecurityTest(): DatabaseBackupJob
+{
+    return new DatabaseBackupJob(new ScheduledDatabaseBackup);
+}
+
+function setDatabaseBackupJobProperty(DatabaseBackupJob $job, string $property, mixed $value): void
+{
+    $reflection = new ReflectionClass($job);
+    $propertyReflection = $reflection->getProperty($property);
+    $propertyReflection->setValue($job, $value);
+}
+
+function callDatabaseBackupJobMethod(DatabaseBackupJob $job, string $method, mixed ...$arguments): mixed
+{
+    return (new ReflectionMethod($job, $method))->invoke($job, ...$arguments);
+}
+
 test('database backup rejects command injection in database name with command substitution', function () {
     expect(fn () => validateShellSafePath('test$(whoami)', 'database name'))
         ->toThrow(Exception::class);
@@ -156,6 +176,30 @@ test('escapeshellarg neutralizes command injection in postgres password', functi
     $command = 'docker exec -e PGPASSWORD='.$escaped.' container pg_dump';
     expect($command)->toContain("PGPASSWORD='");
     expect($command)->not->toContain('PGPASSWORD=""');
+});
+
+test('database backup quotes container names and backup paths', function () {
+    $job = newDatabaseBackupJobForSecurityTest();
+    $container = 'postgres;id';
+    $backupDir = '/data/backups/team;id';
+    $backupLocation = '/data/backups/team;id/dump.sql';
+
+    setDatabaseBackupJobProperty($job, 'container_name', $container);
+    setDatabaseBackupJobProperty($job, 'backup_dir', $backupDir);
+    setDatabaseBackupJobProperty($job, 'backup_location', $backupLocation);
+
+    expect(callDatabaseBackupJobMethod($job, 'escapedContainerName'))->toBe(escapeshellarg($container))
+        ->and(callDatabaseBackupJobMethod($job, 'escapedBackupDir'))->toBe(escapeshellarg($backupDir))
+        ->and(callDatabaseBackupJobMethod($job, 'escapedBackupLocation'))->toBe(escapeshellarg($backupLocation));
+});
+
+test('database backup quotes docker volume mounts', function () {
+    $job = newDatabaseBackupJobForSecurityTest();
+    $source = '/data/source;id';
+    $target = '/data/target;id';
+
+    expect(callDatabaseBackupJobMethod($job, 'escapedDockerVolume', $source, $target))
+        ->toBe(escapeshellarg("{$source}:{$target}:ro"));
 });
 
 test('escapeshellarg neutralizes command injection in postgres username', function () {

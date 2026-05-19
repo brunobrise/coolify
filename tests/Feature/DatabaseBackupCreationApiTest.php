@@ -10,12 +10,17 @@ use App\Models\StandaloneDocker;
 use App\Models\StandalonePostgresql;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    InstanceSettings::updateOrCreate(['id' => 0]);
+    config(['cache.default' => 'array']);
+    config(['app.maintenance.store' => 'array']);
+    $this->withoutMiddleware(PreventRequestsDuringMaintenance::class);
+
+    InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0, 'is_api_enabled' => true]));
 
     $this->team = Team::factory()->create();
     $this->user = User::factory()->create();
@@ -42,7 +47,7 @@ beforeEach(function () {
         'destination_type' => $this->destination->getMorphClass(),
     ]);
 
-    $this->s3Storage = S3Storage::create([
+    $this->s3Storage = S3Storage::unguarded(fn () => S3Storage::create([
         'name' => 'test-s3',
         'region' => 'us-east-1',
         'key' => 'test-key',
@@ -51,7 +56,7 @@ beforeEach(function () {
         'endpoint' => 'https://s3.example.com',
         'team_id' => $this->team->id,
         'is_usable' => true,
-    ]);
+    ]));
 });
 
 describe('POST /api/v1/databases/{uuid}/backups', function () {
@@ -72,7 +77,7 @@ describe('POST /api/v1/databases/{uuid}/backups', function () {
         $backup = ScheduledDatabaseBackup::where('uuid', $response->json('uuid'))->first();
         expect($backup)->not->toBeNull();
         expect($backup->s3_storage_id)->toBe($this->s3Storage->id);
-        expect($backup->save_s3)->toBeTrue();
+        expect((bool) $backup->save_s3)->toBeTrue();
         expect($backup->team_id)->toBe($this->team->id);
     });
 
@@ -90,7 +95,7 @@ describe('POST /api/v1/databases/{uuid}/backups', function () {
 
     test('rejects s3_storage_uuid from another team', function () {
         $otherTeam = Team::factory()->create();
-        $otherS3 = S3Storage::create([
+        $otherS3 = S3Storage::unguarded(fn () => S3Storage::create([
             'name' => 'other-s3',
             'region' => 'us-east-1',
             'key' => 'other-key',
@@ -99,7 +104,7 @@ describe('POST /api/v1/databases/{uuid}/backups', function () {
             'endpoint' => 'https://s3.example.com',
             'team_id' => $otherTeam->id,
             'is_usable' => true,
-        ]);
+        ]));
 
         $response = $this->withHeaders([
             'Authorization' => 'Bearer '.$this->bearerToken,
@@ -169,12 +174,12 @@ describe('PATCH /api/v1/databases/{uuid}/backups/{scheduled_backup_uuid}', funct
         $response->assertStatus(200);
         $backup->refresh();
         expect($backup->s3_storage_id)->toBe($this->s3Storage->id);
-        expect($backup->save_s3)->toBeTrue();
+        expect((bool) $backup->save_s3)->toBeTrue();
     });
 
     test('rejects s3_storage_uuid from another team on update', function () {
         $otherTeam = Team::factory()->create();
-        $otherS3 = S3Storage::create([
+        $otherS3 = S3Storage::unguarded(fn () => S3Storage::create([
             'name' => 'other-s3',
             'region' => 'us-east-1',
             'key' => 'other-key',
@@ -183,7 +188,7 @@ describe('PATCH /api/v1/databases/{uuid}/backups/{scheduled_backup_uuid}', funct
             'endpoint' => 'https://s3.example.com',
             'team_id' => $otherTeam->id,
             'is_usable' => true,
-        ]);
+        ]));
 
         $backup = ScheduledDatabaseBackup::create([
             'frequency' => 'daily',

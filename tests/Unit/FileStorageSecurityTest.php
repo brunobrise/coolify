@@ -154,6 +154,14 @@ test('service file storage shell path helper rejects command injection', functio
         ->toThrow(Exception::class);
 });
 
+test('service file storage writes use quoted base64 helper', function () {
+    $source = file_get_contents(__DIR__.'/../../bootstrap/helpers/services.php');
+
+    expect($source)
+        ->not->toContain("echo '$content' | base64 -d | tee")
+        ->toContain('writeBase64FileCommand($fileLocation, $content)');
+});
+
 test('file storage quotes owner and mode permission commands', function () {
     $volume = new LocalFileVolume;
     $volume->chown = '1000:1000';

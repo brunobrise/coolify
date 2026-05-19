@@ -243,3 +243,12 @@ it('rejects command injection in Docker Compose project directories', function (
     expect(fn () => dockerComposeDownVolumesCommand('/data/coolify/applications/test; id #'))
         ->toThrow(Exception::class);
 });
+
+it('quotes compose validation temp file writes', function () {
+    $source = file_get_contents(__DIR__.'/../../bootstrap/helpers/docker.php');
+
+    expect($source)
+        ->toContain('writeBase64FileCommand($composePath, $base64_compose)')
+        ->toContain("'docker compose -f '.escapeshellarg(\$composePath)")
+        ->not->toContain('base64 -d | tee /tmp/{$uuid}.yml');
+});

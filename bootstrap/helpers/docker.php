@@ -1353,11 +1353,12 @@ function validateComposeFile(string $compose, int $server_id): string|Throwable
         $yaml_compose = stripCoolifyCustomFields($yaml_compose);
 
         $base64_compose = base64_encode(Yaml::dump($yaml_compose));
+        $composePath = "/tmp/{$uuid}.yml";
         instant_remote_process([
-            "echo {$base64_compose} | base64 -d | tee /tmp/{$uuid}.yml > /dev/null",
-            "chmod 600 /tmp/{$uuid}.yml",
-            "docker compose -f /tmp/{$uuid}.yml config --no-interpolate --no-path-resolution -q",
-            "rm /tmp/{$uuid}.yml",
+            writeBase64FileCommand($composePath, $base64_compose),
+            'chmod 600 '.escapeshellarg($composePath),
+            'docker compose -f '.escapeshellarg($composePath).' config --no-interpolate --no-path-resolution -q',
+            'rm '.escapeshellarg($composePath),
         ], $server);
 
         return 'OK';

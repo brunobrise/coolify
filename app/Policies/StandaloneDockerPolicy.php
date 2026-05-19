@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\StandaloneDocker;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 
 class StandaloneDockerPolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -20,7 +23,7 @@ class StandaloneDockerPolicy
      */
     public function view(User $user, StandaloneDocker $standaloneDocker): bool
     {
-        return $user->teams->contains('id', $standaloneDocker->server->team_id);
+        return $this->canViewTeam($user, $standaloneDocker->server?->team_id);
     }
 
     /**
@@ -28,8 +31,7 @@ class StandaloneDockerPolicy
      */
     public function create(User $user): bool
     {
-        // return $user->isAdmin();
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -37,7 +39,7 @@ class StandaloneDockerPolicy
      */
     public function update(User $user, StandaloneDocker $standaloneDocker): bool
     {
-        return $user->teams->contains('id', $standaloneDocker->server->team_id);
+        return $this->canManageTeam($user, $standaloneDocker->server?->team_id);
     }
 
     /**
@@ -45,7 +47,7 @@ class StandaloneDockerPolicy
      */
     public function delete(User $user, StandaloneDocker $standaloneDocker): bool
     {
-        return $user->teams->contains('id', $standaloneDocker->server->team_id);
+        return $this->canManageTeam($user, $standaloneDocker->server?->team_id);
     }
 
     /**

@@ -91,6 +91,19 @@ it('prevents command injection in docker restart container names', function () {
         ->not->toContain('docker restart coolify-app;');
 });
 
+it('quotes docker image removal refs', function () {
+    expect(dockerRemoveImageCommand('registry.example.com/app:latest'))
+        ->toBe("docker rmi 'registry.example.com/app:latest'");
+});
+
+it('prevents command injection in docker image removal refs', function () {
+    $command = dockerRemoveImageCommand('registry.example.com/app:latest; id #');
+
+    expect($command)
+        ->toBe("docker rmi 'registry.example.com/app:latest; id #'")
+        ->not->toContain('docker rmi registry.example.com/app:latest;');
+});
+
 it('quotes docker container logs arguments', function () {
     expect(dockerContainerLogsCommand('coolify-app', 200, timestamps: true, redirectStderr: true))
         ->toBe("docker logs -n 200 -t 'coolify-app' 2>&1");

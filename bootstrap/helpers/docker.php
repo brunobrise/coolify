@@ -190,6 +190,11 @@ function dockerRestartContainerCommand(string $container_id): string
     return 'docker restart '.escapeshellarg($container_id);
 }
 
+function dockerRemoveImageCommand(string $image_ref): string
+{
+    return 'docker rmi '.escapeshellarg($image_ref);
+}
+
 function dockerContainerLogsCommand(string $container_id, ?int $lines = 100, bool $timestamps = false, bool $redirectStderr = false): string
 {
     $lineFlag = $lines === null ? '' : ' -n '.max(1, (int) $lines);

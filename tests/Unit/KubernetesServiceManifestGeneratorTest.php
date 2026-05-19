@@ -32,6 +32,12 @@ it('generates kubernetes resources for image based services', function () {
                 'ports' => ['8080:80'],
                 'environment' => ['APP_ENV' => 'production'],
                 'volumes' => ['web-data:/data'],
+                'deploy' => [
+                    'resources' => [
+                        'limits' => ['cpus' => '1', 'memory' => '1G'],
+                        'reservations' => ['cpus' => '0.5', 'memory' => '512M'],
+                    ],
+                ],
             ],
         ],
         'volumes' => ['web-data' => []],
@@ -59,8 +65,17 @@ it('generates kubernetes resources for image based services', function () {
     expect(data_get($deployment, 'metadata.labels')['coolify.io/service-uuid'])->toBe('svc123456789')
         ->and(data_get($deployment, 'spec.template.spec.serviceAccountName'))->toBe('coolify-workload')
         ->and(data_get($deployment, 'spec.template.spec.imagePullSecrets.0.name'))->toBe('regcred')
+        ->and(data_get($deployment, 'spec.template.spec.containers.0.resources.requests.cpu'))->toBe('500m')
         ->and(data_get($ingress, 'spec.rules.0.host'))->toBe('analytics.example.com')
         ->and(data_get($ingress, 'spec.tls.0.secretName'))->toBe('analytics-tls');
+});
+
+it('does not mount a service account token unless a service account is configured', function () {
+    $resources = (new KubernetesServiceManifestGenerator)->generate(kubernetesService(), [
+        'services' => ['web' => ['image' => 'ghcr.io/example/web:1']],
+    ]);
+
+    expect(data_get(collect($resources)->firstWhere('kind', 'Deployment'), 'spec.template.spec.automountServiceAccountToken'))->toBeFalse();
 });
 
 it('rejects service compose build and bind mount definitions', function () {

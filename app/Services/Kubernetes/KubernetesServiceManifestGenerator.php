@@ -91,12 +91,18 @@ class KubernetesServiceManifestGenerator
         if ($volumes['mounts'] !== []) {
             $container['volumeMounts'] = $volumes['mounts'];
         }
+        $resources = $this->data->composeResources($composeService, (bool) ($options['autoscaling'] ?? false));
+        if ($resources !== []) {
+            $container['resources'] = $resources;
+        }
         $podSpec = ['containers' => [$container]];
         if ($volumes['volumes'] !== []) {
             $podSpec['volumes'] = $volumes['volumes'];
         }
         if (filled($options['service_account_name'] ?? null)) {
             $podSpec['serviceAccountName'] = $options['service_account_name'];
+        } else {
+            $podSpec['automountServiceAccountToken'] = false;
         }
         $imagePullSecrets = $this->data->stringList($options['image_pull_secrets'] ?? null);
         if ($imagePullSecrets !== []) {

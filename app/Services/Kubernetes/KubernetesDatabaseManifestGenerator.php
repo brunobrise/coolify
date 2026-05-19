@@ -66,7 +66,7 @@ class KubernetesDatabaseManifestGenerator
         }
 
         $container['volumeMounts'] = [['name' => 'data', 'mountPath' => $this->mountPath($database)]];
-        $podSpec = ['containers' => [$container]];
+        $podSpec = ['automountServiceAccountToken' => false, 'containers' => [$container]];
         $imagePullSecrets = $this->data->stringList($options['image_pull_secrets'] ?? null);
 
         if ($imagePullSecrets !== []) {

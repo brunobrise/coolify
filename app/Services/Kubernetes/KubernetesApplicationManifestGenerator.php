@@ -96,11 +96,14 @@ class KubernetesApplicationManifestGenerator
         $healthCheck = $this->httpHealthCheck($application, $port);
 
         if ($healthCheck !== null) {
-            $container['readinessProbe'] = $healthCheck;
-            $container['livenessProbe'] = $healthCheck;
+            $runtimeHealthCheck = $healthCheck;
+            unset($runtimeHealthCheck['initialDelaySeconds']);
+            $container['readinessProbe'] = $runtimeHealthCheck;
+            $container['livenessProbe'] = $this->livenessProbe($runtimeHealthCheck);
+            $container['startupProbe'] = $this->startupProbe($healthCheck);
         }
 
-        $resources = $this->resources($application);
+        $resources = $this->resources($application, $options);
 
         if ($resources !== []) {
             $container['resources'] = $resources;
@@ -300,21 +303,33 @@ class KubernetesApplicationManifestGenerator
         ];
     }
 
-    private function resources(Application $application): array
+    private function livenessProbe(array $healthCheck): array
     {
-        $limits = array_filter([
-            'memory' => $application->limits_memory ?: null,
-            'cpu' => $application->limits_cpus ?: null,
-        ]);
+        $healthCheck['failureThreshold'] = max((int) ($healthCheck['failureThreshold'] ?? 3), 6);
 
-        $requests = array_filter([
-            'memory' => $application->limits_memory_reservation ?: null,
-        ]);
+        return $healthCheck;
+    }
 
-        return array_filter([
-            'limits' => $limits,
-            'requests' => $requests,
-        ]);
+    private function startupProbe(array $healthCheck): array
+    {
+        $periodSeconds = max((int) ($healthCheck['periodSeconds'] ?? 10), 1);
+        $startPeriod = (int) ($healthCheck['initialDelaySeconds'] ?? 0);
+        $healthCheck['failureThreshold'] = max((int) ceil($startPeriod / $periodSeconds), (int) ($healthCheck['failureThreshold'] ?? 3), 6);
+        unset($healthCheck['initialDelaySeconds']);
+
+        return $healthCheck;
+    }
+
+    private function resources(Application $application, array $options): array
+    {
+        $data = new KubernetesManifestData;
+
+        return $data->containerResources([
+            'memory' => $data->resourceQuantity($application->limits_memory),
+            'cpu' => $data->cpuQuantity($application->limits_cpus),
+        ], [
+            'memory' => $data->resourceQuantity($application->limits_memory_reservation),
+        ], (bool) ($options['autoscaling'] ?? false));
     }
 
     private function image(Application $application, array $options): string

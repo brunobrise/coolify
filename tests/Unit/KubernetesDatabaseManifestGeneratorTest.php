@@ -32,6 +32,7 @@ it('generates kubernetes resources for standalone databases', function () {
 
     expect(data_get($statefulSet, 'metadata.labels')['coolify.io/database-uuid'])->toBe('db123456789')
         ->and(data_get($statefulSet, 'spec.template.spec.containers.0.image'))->toBe('postgres:16-alpine')
+        ->and(data_get($statefulSet, 'spec.template.spec.automountServiceAccountToken'))->toBeFalse()
         ->and(data_get($statefulSet, 'spec.volumeClaimTemplates.0.spec.resources.requests.storage'))->toBe('10Gi')
         ->and(data_get($statefulSet, 'spec.volumeClaimTemplates.0.spec.storageClassName'))->toBe('fast')
         ->and(data_get($statefulSet, 'spec.volumeClaimTemplates.0.metadata.labels')['coolify.io/database-uuid'])->toBe('db123456789')

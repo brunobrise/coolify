@@ -50,10 +50,18 @@ it('generates deployment service ingress and hpa manifests', function () {
     expect($container['image'])->toBe('registry.example.com/customer/api:2026.05.18');
     expect($container['ports'][0]['containerPort'])->toBe(8080);
     expect($container['readinessProbe']['httpGet']['path'])->toBe('/health');
+    expect($container['livenessProbe']['failureThreshold'])->toBe(6);
+    expect($container['startupProbe']['httpGet']['path'])->toBe('/health');
+    expect($container['startupProbe'])->not->toHaveKey('initialDelaySeconds');
     expect($container['resources']['limits'])->toBe([
         'memory' => '512Mi',
         'cpu' => '500m',
     ]);
+    expect($container['resources']['requests'])->toBe([
+        'memory' => '256Mi',
+        'cpu' => '500m',
+    ]);
+    expect($deployment['spec']['template']['spec']['automountServiceAccountToken'])->toBeFalse();
 
     $service = $resources[1];
     expect($service['spec']['ports'][0])->toMatchArray([
@@ -81,7 +89,7 @@ it('omits ingress and probes when application configuration does not need them',
 
     expect(array_column($resources, 'kind'))->toBe(['Deployment', 'Service']);
     expect($resources[0]['spec']['template']['spec']['containers'][0])
-        ->not->toHaveKeys(['readinessProbe', 'livenessProbe']);
+        ->not->toHaveKeys(['readinessProbe', 'livenessProbe', 'startupProbe']);
 });
 
 it('adds runtime environment variables through an opaque secret', function () {
@@ -158,6 +166,7 @@ it('generates production resource primitives when configured', function () {
 
     $podSpec = $resources[2]['spec']['template']['spec'];
     expect($podSpec['serviceAccountName'])->toBe('customer-api');
+    expect($podSpec)->not->toHaveKey('automountServiceAccountToken');
     expect($podSpec['imagePullSecrets'])->toBe($serviceAccount['imagePullSecrets']);
     expect($podSpec['nodeSelector'])->toBe(['pool' => 'apps']);
     expect($podSpec['tolerations'][0]['key'])->toBe('dedicated');

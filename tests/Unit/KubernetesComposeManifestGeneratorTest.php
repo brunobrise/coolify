@@ -27,6 +27,12 @@ it('generates kubernetes resources for image based compose services', function (
                 'volumes' => [
                     'api-data:/var/lib/api',
                 ],
+                'deploy' => [
+                    'resources' => [
+                        'limits' => ['cpus' => '0.5', 'memory' => '512M'],
+                        'reservations' => ['memory' => '256M'],
+                    ],
+                ],
             ],
             'worker' => [
                 'image' => 'ghcr.io/example/worker:1.0.0',
@@ -84,6 +90,10 @@ it('generates kubernetes resources for image based compose services', function (
     expect($apiDeployment['spec']['template']['spec']['containers'][0]['image'])->toBe('ghcr.io/example/api:1.0.0');
     expect($apiDeployment['spec']['template']['spec']['containers'][0]['ports'][0]['containerPort'])->toBe(3000);
     expect($apiDeployment['spec']['template']['spec']['containers'][0]['volumeMounts'][0]['mountPath'])->toBe('/var/lib/api');
+    expect($apiDeployment['spec']['template']['spec']['containers'][0]['resources'])->toBe([
+        'limits' => ['cpu' => '500m', 'memory' => '512M'],
+        'requests' => ['memory' => '256M', 'cpu' => '500m'],
+    ]);
     expect($apiDeployment['spec']['template']['spec']['serviceAccountName'])->toBe('coolify-workload');
     expect($apiDeployment['spec']['template']['spec']['imagePullSecrets'][0]['name'])->toBe('regcred');
     expect($apiDeployment['spec']['template']['spec']['nodeSelector'])->toBe(['workload' => 'apps']);
@@ -136,6 +146,7 @@ it('generates isolated compose preview resources for pull request deployments', 
     expect($generator->resourceNames(kubernetesComposeApplication(), $compose, ['pull_request_id' => 42]))
         ->toBe(['customer-stack-api-ckv4a1b2-pr-42']);
     expect($deployment['metadata']['labels']['coolify.io/pull-request-id'])->toBe('42');
+    expect($deployment['spec']['template']['spec']['automountServiceAccountToken'])->toBeFalse();
     expect($ingress['spec']['rules'][0]['host'])->toBe('pr-42-api.example.com');
 });
 

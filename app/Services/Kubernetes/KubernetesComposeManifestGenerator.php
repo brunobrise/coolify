@@ -19,15 +19,12 @@ class KubernetesComposeManifestGenerator
     {
         $namespace = $options['namespace'] ?? 'default';
         $resources = [];
-
         if (($options['create_namespace'] ?? false) === true) {
             $resources[] = $this->namespace($namespace);
         }
-
         if ($serviceAccount = $this->serviceAccount($namespace, $options)) {
             $resources[] = $serviceAccount;
         }
-
         foreach ($this->services($compose) as $serviceName => $service) {
             $resources = [
                 ...$resources,
@@ -60,7 +57,7 @@ class KubernetesComposeManifestGenerator
         $labels = $this->labels($application, $name, $serviceName, $options);
         $port = $this->port($service);
         $environment = $this->environment($service, $options['environment'] ?? []);
-        $volumes = $this->volumes($application, $service, $name, $namespace, $labels, $options);
+        $volumes = $this->volumes($application, $serviceName, $service, $name, $namespace, $labels, $options);
         $resources = collect($volumes['claims']);
         $secret = $this->secret($name, $namespace, $labels, $environment);
 
@@ -106,14 +103,18 @@ class KubernetesComposeManifestGenerator
             $container['volumeMounts'] = $volumes['mounts'];
         }
 
+        $resources = $this->data->composeResources($service, (bool) ($options['autoscaling'] ?? false));
+        if ($resources !== []) {
+            $container['resources'] = $resources;
+        }
         $podSpec = ['containers' => [$container]];
-
         if ($volumes['volumes'] !== []) {
             $podSpec['volumes'] = $volumes['volumes'];
         }
-
         if (filled($options['service_account_name'] ?? null)) {
             $podSpec['serviceAccountName'] = $options['service_account_name'];
+        } else {
+            $podSpec['automountServiceAccountToken'] = false;
         }
 
         $imagePullSecrets = $this->data->stringList($options['image_pull_secrets'] ?? null);
@@ -227,12 +228,11 @@ class KubernetesComposeManifestGenerator
         ];
     }
 
-    private function volumes(Application $application, array $service, string $name, string $namespace, array $labels, array $options): array
+    private function volumes(Application $application, string $serviceName, array $service, string $name, string $namespace, array $labels, array $options): array
     {
         $claims = [];
         $mounts = [];
         $volumes = [];
-
         foreach (data_get($service, 'volumes', []) as $index => $volume) {
             [$source, $target] = $this->volumeParts($volume);
 

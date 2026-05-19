@@ -4,10 +4,13 @@ namespace App\Policies;
 
 use App\Models\Application;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 use Illuminate\Auth\Access\Response;
 
 class ApplicationPolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -25,11 +28,7 @@ class ApplicationPolicy
      */
     public function view(User $user, Application $application): bool
     {
-        // Authorization temporarily disabled
-        /*
-        return true;
-        */
-        return true;
+        return $this->canViewTeam($user, $this->teamId($application));
     }
 
     /**
@@ -37,15 +36,7 @@ class ApplicationPolicy
      */
     public function create(User $user): bool
     {
-        // Authorization temporarily disabled
-        /*
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return false;
-        */
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -53,15 +44,11 @@ class ApplicationPolicy
      */
     public function update(User $user, Application $application): Response
     {
-        // Authorization temporarily disabled
-        /*
-        if ($user->isAdmin()) {
+        if ($this->canManageTeam($user, $this->teamId($application))) {
             return Response::allow();
         }
 
         return Response::deny('As a member, you cannot update this application.<br/><br/>You need at least admin or owner permissions.');
-        */
-        return Response::allow();
     }
 
     /**
@@ -69,15 +56,7 @@ class ApplicationPolicy
      */
     public function delete(User $user, Application $application): bool
     {
-        // Authorization temporarily disabled
-        /*
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return false;
-        */
-        return true;
+        return $this->canManageTeam($user, $this->teamId($application));
     }
 
     /**
@@ -85,11 +64,7 @@ class ApplicationPolicy
      */
     public function restore(User $user, Application $application): bool
     {
-        // Authorization temporarily disabled
-        /*
-        return true;
-        */
-        return true;
+        return $this->canManageTeam($user, $this->teamId($application));
     }
 
     /**
@@ -97,11 +72,7 @@ class ApplicationPolicy
      */
     public function forceDelete(User $user, Application $application): bool
     {
-        // Authorization temporarily disabled
-        /*
-        return $user->isAdmin() && $user->teams->contains('id', $application->team()->first()->id);
-        */
-        return true;
+        return $this->canManageTeam($user, $this->teamId($application));
     }
 
     /**
@@ -109,11 +80,7 @@ class ApplicationPolicy
      */
     public function deploy(User $user, Application $application): bool
     {
-        // Authorization temporarily disabled
-        /*
-        return $user->teams->contains('id', $application->team()->first()->id);
-        */
-        return true;
+        return $this->canManageTeam($user, $this->teamId($application));
     }
 
     /**
@@ -121,11 +88,7 @@ class ApplicationPolicy
      */
     public function manageDeployments(User $user, Application $application): bool
     {
-        // Authorization temporarily disabled
-        /*
-        return $user->isAdmin() && $user->teams->contains('id', $application->team()->first()->id);
-        */
-        return true;
+        return $this->canManageTeam($user, $this->teamId($application));
     }
 
     /**
@@ -133,11 +96,7 @@ class ApplicationPolicy
      */
     public function manageEnvironment(User $user, Application $application): bool
     {
-        // Authorization temporarily disabled
-        /*
-        return $user->isAdmin() && $user->teams->contains('id', $application->team()->first()->id);
-        */
-        return true;
+        return $this->canManageTeam($user, $this->teamId($application));
     }
 
     /**
@@ -145,10 +104,11 @@ class ApplicationPolicy
      */
     public function cleanupDeploymentQueue(User $user): bool
     {
-        // Authorization temporarily disabled
-        /*
-        return $user->isAdmin();
-        */
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
+    }
+
+    private function teamId(Application $application): ?int
+    {
+        return data_get($application->team(), 'id');
     }
 }

@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\Service;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 
 class ServicePolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -20,7 +23,7 @@ class ServicePolicy
      */
     public function view(User $user, Service $service): bool
     {
-        return true;
+        return $this->canViewTeam($user, $this->teamId($service));
     }
 
     /**
@@ -28,8 +31,7 @@ class ServicePolicy
      */
     public function create(User $user): bool
     {
-        // return $user->isAdmin();
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -42,8 +44,7 @@ class ServicePolicy
             return false;
         }
 
-        // return $user->isAdmin() && $user->teams->contains('id', $team->id);
-        return true;
+        return $this->canManageTeam($user, $team->id);
     }
 
     /**
@@ -51,12 +52,7 @@ class ServicePolicy
      */
     public function delete(User $user, Service $service): bool
     {
-        // if ($user->isAdmin()) {
-        //    return true;
-        // }
-
-        // return false;
-        return true;
+        return $this->canManageTeam($user, $this->teamId($service));
     }
 
     /**
@@ -64,8 +60,7 @@ class ServicePolicy
      */
     public function restore(User $user, Service $service): bool
     {
-        // return true;
-        return true;
+        return $this->canManageTeam($user, $this->teamId($service));
     }
 
     /**
@@ -73,12 +68,7 @@ class ServicePolicy
      */
     public function forceDelete(User $user, Service $service): bool
     {
-        // if ($user->isAdmin()) {
-        //    return true;
-        // }
-
-        // return false;
-        return true;
+        return $this->canManageTeam($user, $this->teamId($service));
     }
 
     public function stop(User $user, Service $service): bool
@@ -88,8 +78,7 @@ class ServicePolicy
             return false;
         }
 
-        // return $user->teams->contains('id', $team->id);
-        return true;
+        return $this->canManageTeam($user, $team->id);
     }
 
     /**
@@ -102,8 +91,7 @@ class ServicePolicy
             return false;
         }
 
-        // return $user->isAdmin() && $user->teams->contains('id', $team->id);
-        return true;
+        return $this->canManageTeam($user, $team->id);
     }
 
     /**
@@ -116,13 +104,16 @@ class ServicePolicy
             return false;
         }
 
-        // return $user->teams->contains('id', $team->id);
-        return true;
+        return $this->canManageTeam($user, $team->id);
     }
 
     public function accessTerminal(User $user, Service $service): bool
     {
-        // return $user->isAdmin() || $user->teams->contains('id', $service->team()->id);
-        return true;
+        return $this->canManageTeam($user, $this->teamId($service));
+    }
+
+    private function teamId(Service $service): ?int
+    {
+        return data_get($service->team(), 'id');
     }
 }

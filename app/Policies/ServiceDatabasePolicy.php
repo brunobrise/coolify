@@ -13,7 +13,7 @@ class ServiceDatabasePolicy
      */
     public function view(User $user, ServiceDatabase $serviceDatabase): bool
     {
-        return true;
+        return Gate::forUser($user)->allows('view', $serviceDatabase->service);
     }
 
     /**
@@ -21,8 +21,7 @@ class ServiceDatabasePolicy
      */
     public function create(User $user): bool
     {
-        // return $user->isAdmin();
-        return true;
+        return $user->isAdmin();
     }
 
     /**
@@ -31,8 +30,7 @@ class ServiceDatabasePolicy
     public function update(User $user, ServiceDatabase $serviceDatabase): bool
     {
 
-        // return Gate::allows('update', $serviceDatabase->service);
-        return true;
+        return Gate::forUser($user)->allows('update', $serviceDatabase->service);
     }
 
     /**
@@ -40,8 +38,7 @@ class ServiceDatabasePolicy
      */
     public function delete(User $user, ServiceDatabase $serviceDatabase): bool
     {
-        // return Gate::allows('delete', $serviceDatabase->service);
-        return true;
+        return Gate::forUser($user)->allows('delete', $serviceDatabase->service);
     }
 
     /**
@@ -49,8 +46,7 @@ class ServiceDatabasePolicy
      */
     public function restore(User $user, ServiceDatabase $serviceDatabase): bool
     {
-        // return Gate::allows('update', $serviceDatabase->service);
-        return true;
+        return Gate::forUser($user)->allows('update', $serviceDatabase->service);
     }
 
     /**
@@ -58,12 +54,11 @@ class ServiceDatabasePolicy
      */
     public function forceDelete(User $user, ServiceDatabase $serviceDatabase): bool
     {
-        // return Gate::allows('delete', $serviceDatabase->service);
-        return true;
+        return Gate::forUser($user)->allows('delete', $serviceDatabase->service);
     }
 
     public function manageBackups(User $user, ServiceDatabase $serviceDatabase): bool
     {
-        return true;
+        return Gate::forUser($user)->allows('update', $serviceDatabase->service);
     }
 }

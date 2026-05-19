@@ -1,9 +1,11 @@
 <?php
 
 use App\Enums\ApplicationDeploymentStatus;
+use App\Http\Middleware\PreventRequestsDuringMaintenance;
 use App\Models\Application;
 use App\Models\ApplicationDeploymentQueue;
 use App\Models\Environment;
+use App\Models\InstanceSettings;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Team;
@@ -14,6 +16,10 @@ use Illuminate\Support\Str;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    config(['cache.default' => 'array']);
+    $this->withoutMiddleware(PreventRequestsDuringMaintenance::class);
+    InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0]));
+
     $this->team = Team::factory()->create();
     $this->user = User::factory()->create();
     $this->team->members()->attach($this->user->id, ['role' => 'owner']);

@@ -2,7 +2,10 @@
 
 namespace App\Livewire\Project\Shared\ScheduledTask;
 
+use App\Models\Application;
 use App\Models\ScheduledTask;
+use App\Models\Service;
+use App\Models\StandalonePostgresql;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
@@ -56,20 +59,8 @@ class Add extends Component
     {
         $this->parameters = get_route_parameters();
 
-        // Get the resource based on type and id
-        switch ($this->type) {
-            case 'application':
-                $this->resource = \App\Models\Application::findOrFail($this->id);
-                break;
-            case 'service':
-                $this->resource = \App\Models\Service::findOrFail($this->id);
-                break;
-            case 'standalone-postgresql':
-                $this->resource = \App\Models\StandalonePostgresql::findOrFail($this->id);
-                break;
-            default:
-                throw new \Exception('Invalid resource type');
-        }
+        $this->resource = $this->resolveResource();
+        $this->authorize('update', $this->resource);
 
         if ($this->containerNames->count() > 0) {
             $this->container = $this->containerNames->first();
@@ -99,7 +90,7 @@ class Add extends Component
         }
     }
 
-    public function saveScheduledTask()
+    private function saveScheduledTask()
     {
         try {
             $task = new ScheduledTask;
@@ -112,13 +103,13 @@ class Add extends Component
 
             switch ($this->type) {
                 case 'application':
-                    $task->application_id = $this->id;
+                    $task->application_id = $this->resource->id;
                     break;
                 case 'standalone-postgresql':
-                    $task->standalone_postgresql_id = $this->id;
+                    $task->standalone_postgresql_id = $this->resource->id;
                     break;
                 case 'service':
-                    $task->service_id = $this->id;
+                    $task->service_id = $this->resource->id;
                     break;
             }
             $task->save();
@@ -136,5 +127,15 @@ class Add extends Component
         $this->frequency = '';
         $this->container = '';
         $this->timeout = 300;
+    }
+
+    private function resolveResource()
+    {
+        return match ($this->type) {
+            'application' => Application::ownedByCurrentTeam()->findOrFail($this->id),
+            'service' => Service::ownedByCurrentTeam()->findOrFail($this->id),
+            'standalone-postgresql' => StandalonePostgresql::ownedByCurrentTeam()->findOrFail($this->id),
+            default => throw new \Exception('Invalid resource type'),
+        };
     }
 }

@@ -90,8 +90,8 @@ class RestoreDatabase extends Command
 
         // Build the psql command to drop all tables
         $command = sprintf(
-            'PGPASSWORD=%s psql -h %s -p %s -U %s -d %s -c %s',
-            escapeshellarg($password),
+            '%s psql -h %s -p %s -U %s -d %s -c %s',
+            $this->postgresPasswordEnvironment($password),
             escapeshellarg($host),
             escapeshellarg($port),
             escapeshellarg($username),
@@ -101,7 +101,7 @@ class RestoreDatabase extends Command
 
         if ($this->debug) {
             $this->line('<comment>Executing drop command:</comment>');
-            $this->line($command);
+            $this->line($this->redactedPostgresCommand($command, $password));
         }
 
         $output = shell_exec($command.' 2>&1');
@@ -122,7 +122,7 @@ class RestoreDatabase extends Command
         // Handle gzipped files by decompressing first
         $actualFile = $filePath;
         if (str_ends_with($filePath, '.gz')) {
-            $actualFile = rtrim($filePath, '.gz');
+            $actualFile = substr($filePath, 0, -3);
             $this->info('Decompressing gzipped dump file...');
 
             $decompressCommand = sprintf(
@@ -144,8 +144,8 @@ class RestoreDatabase extends Command
 
         // Use pg_restore for custom format dumps
         $command = sprintf(
-            'PGPASSWORD=%s pg_restore -h %s -p %s -U %s -d %s -v %s',
-            escapeshellarg($password),
+            '%s pg_restore -h %s -p %s -U %s -d %s -v %s',
+            $this->postgresPasswordEnvironment($password),
             escapeshellarg($host),
             escapeshellarg($port),
             escapeshellarg($username),
@@ -155,7 +155,7 @@ class RestoreDatabase extends Command
 
         if ($this->debug) {
             $this->line('<comment>Executing restore command:</comment>');
-            $this->line($command);
+            $this->line($this->redactedPostgresCommand($command, $password));
         }
 
         // Execute the restore command
@@ -215,5 +215,19 @@ class RestoreDatabase extends Command
     private function isDevelopment(): bool
     {
         return app()->environment(['local', 'development', 'dev']);
+    }
+
+    private function postgresPasswordEnvironment(string $password): string
+    {
+        return 'PGPASSWORD='.escapeshellarg($password);
+    }
+
+    private function redactedPostgresCommand(string $command, string $password): string
+    {
+        return str_replace(
+            $this->postgresPasswordEnvironment($password),
+            'PGPASSWORD=[redacted]',
+            $command
+        );
     }
 }

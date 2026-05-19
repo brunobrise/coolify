@@ -61,7 +61,7 @@ class DeleteService
                 $service->deleteConnectedNetworks();
             }
 
-            instant_remote_process(["docker rm -f $service->uuid"], $server, throwError: false);
+            instant_remote_process([dockerRemoveContainerCommand((string) $service->uuid)], $server, throwError: false);
         } catch (\Exception $e) {
             throw new \RuntimeException($e->getMessage());
         } finally {

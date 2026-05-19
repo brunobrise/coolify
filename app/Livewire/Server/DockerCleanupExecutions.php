@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Server;
 
-use App\Models\DockerCleanupExecution;
 use App\Models\Server;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -46,7 +45,14 @@ class DockerCleanupExecutions extends Component
             ->get();
 
         if ($this->selectedKey) {
-            $this->selectedExecution = DockerCleanupExecution::find($this->selectedKey);
+            $this->selectedExecution = $this->server->dockerCleanupExecutions()->find($this->selectedKey);
+            if (! $this->selectedExecution) {
+                $this->selectedKey = null;
+                $this->isPollingActive = false;
+
+                return;
+            }
+
             if ($this->selectedExecution && $this->selectedExecution->status !== 'running') {
                 $this->isPollingActive = false;
             }
@@ -64,8 +70,15 @@ class DockerCleanupExecutions extends Component
             return;
         }
         $this->selectedKey = $key;
-        $this->selectedExecution = DockerCleanupExecution::find($key);
+        $this->selectedExecution = $this->server->dockerCleanupExecutions()->find($key);
         $this->currentPage = 1;
+
+        if (! $this->selectedExecution) {
+            $this->selectedKey = null;
+            $this->isPollingActive = false;
+
+            return;
+        }
 
         if ($this->selectedExecution && $this->selectedExecution->status === 'running') {
             $this->isPollingActive = true;

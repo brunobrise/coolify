@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Team\InviteLink;
+use App\Models\InstanceSettings;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -9,6 +10,9 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    config(['cache.default' => 'array']);
+    InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0]));
+
     // Create a team with owner, admin, and member
     $this->team = Team::factory()->create();
 
@@ -157,6 +161,22 @@ describe('privilege escalation prevention', function () {
         $this->assertDatabaseHas('team_invitations', [
             'email' => 'newowner@example.com',
             'role' => 'owner',
+            'team_id' => $this->team->id,
+        ]);
+    });
+
+    test('owner cannot invite with unknown role', function () {
+        $this->actingAs($this->owner);
+        session(['currentTeam' => $this->team]);
+
+        Livewire::test(InviteLink::class)
+            ->set('email', 'unknown-role@example.com')
+            ->set('role', 'super-admin')
+            ->call('viaLink')
+            ->assertDispatched('error');
+
+        $this->assertDatabaseMissing('team_invitations', [
+            'email' => 'unknown-role@example.com',
             'team_id' => $this->team->id,
         ]);
     });

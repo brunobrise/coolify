@@ -6,6 +6,7 @@ use App\Models\Team;
 use App\Models\WebhookNotificationSettings;
 use App\Notifications\Test;
 use App\Rules\SafeWebhookUrl;
+use App\Support\SafeUrlHost;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -169,7 +170,7 @@ class Webhook extends Component
         if (isDev()) {
             ray('Webhook settings saved', [
                 'webhook_enabled' => $this->settings->webhook_enabled,
-                'webhook_url' => $this->settings->webhook_url,
+                'webhook_url' => SafeUrlHost::redactedUrlForLog($this->settings->webhook_url ?? ''),
             ]);
         }
 
@@ -184,7 +185,7 @@ class Webhook extends Component
             if (isDev()) {
                 ray('Sending test webhook notification', [
                     'team_id' => $this->team->id,
-                    'webhook_url' => $this->settings->webhook_url,
+                    'webhook_url' => SafeUrlHost::redactedUrlForLog($this->settings->webhook_url ?? ''),
                 ]);
             }
 

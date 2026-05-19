@@ -61,7 +61,7 @@ class SendWebhookJob implements ShouldBeEncrypted, ShouldQueue
         if (isDev()) {
             ray('Sending webhook notification', [
                 'url' => SafeUrlHost::redactedUrlForLog($this->webhookUrl),
-                'payload' => $this->payload,
+                'payload_keys' => array_keys($this->payload),
             ]);
         }
 
@@ -72,7 +72,7 @@ class SendWebhookJob implements ShouldBeEncrypted, ShouldQueue
         if (isDev()) {
             ray('Webhook response', [
                 'status' => $response->status(),
-                'body' => $response->body(),
+                'body_bytes' => strlen($response->body()),
                 'successful' => $response->successful(),
             ]);
         }

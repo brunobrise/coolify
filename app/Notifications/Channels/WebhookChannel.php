@@ -3,6 +3,7 @@
 namespace App\Notifications\Channels;
 
 use App\Jobs\SendWebhookJob;
+use App\Support\SafeUrlHost;
 use Illuminate\Notifications\Notification;
 
 class WebhookChannel
@@ -27,8 +28,8 @@ class WebhookChannel
         if (isDev()) {
             ray('Dispatching webhook notification', [
                 'notification' => get_class($notification),
-                'url' => $webhookSettings->webhook_url,
-                'payload' => $payload,
+                'url' => SafeUrlHost::redactedUrlForLog($webhookSettings->webhook_url),
+                'payload_keys' => array_keys($payload),
             ]);
         }
 

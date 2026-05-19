@@ -36,19 +36,42 @@ class DynamicConfigurations extends Component
     public function loadDynamicConfigurations()
     {
         $proxy_path = $this->server->proxyPath();
-        $files = instant_remote_process(["mkdir -p $proxy_path/dynamic && ls -1 {$proxy_path}/dynamic"], $this->server);
-        $files = collect(explode("\n", $files))->filter(fn ($file) => ! empty($file));
-        $files = $files->map(fn ($file) => trim($file));
-        $files = $files->sort();
+        $dynamicPath = "{$proxy_path}/dynamic";
+        $escapedDynamicPath = escapeshellarg($dynamicPath);
+        $files = instant_remote_process(["mkdir -p {$escapedDynamicPath} && ls -1 {$escapedDynamicPath}"], $this->server);
+        $files = self::safeDynamicConfigurationFiles($files);
         $contents = collect([]);
         foreach ($files as $file) {
             $without_extension = str_replace('.', '|', $file);
-            $content = instant_remote_process(["cat {$proxy_path}/dynamic/{$file}"], $this->server);
+            $fullPath = "{$dynamicPath}/{$file}";
+            $escapedPath = escapeshellarg($fullPath);
+            $content = instant_remote_process(["cat {$escapedPath}"], $this->server);
             $contents[$without_extension] = $content ?? '';
         }
         $this->contents = $contents;
         $this->dispatch('$refresh');
         $this->dispatch('success', 'Dynamic configurations loaded.');
+    }
+
+    public static function safeDynamicConfigurationFiles(?string $files): Collection
+    {
+        return collect(explode("\n", (string) $files))
+            ->map(fn ($file) => trim($file))
+            ->filter()
+            ->filter(fn ($file) => self::isSafeDynamicConfigurationFilename($file))
+            ->sort()
+            ->values();
+    }
+
+    private static function isSafeDynamicConfigurationFilename(string $file): bool
+    {
+        try {
+            validateFilenameSafe($file, 'proxy configuration filename');
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return preg_match('/\A[a-zA-Z0-9._-]+\z/', $file) === 1 && ! str_starts_with($file, '.');
     }
 
     public function mount()

@@ -1,5 +1,7 @@
 <?php
 
+use App\Livewire\Server\Proxy\DynamicConfigurations;
+
 /**
  * Proxy Configuration Security Tests
  *
@@ -80,4 +82,29 @@ test('proxy configuration accepts legitimate Caddy filenames', function () {
 
     expect(fn () => validateShellSafePath('app_config.caddy', 'proxy configuration filename'))
         ->not->toThrow(Exception::class);
+});
+
+test('dynamic configuration listing filters unsafe remote filenames', function () {
+    $files = DynamicConfigurations::safeDynamicConfigurationFiles(implode("\n", [
+        'router_config.yml',
+        'good-service.yaml',
+        'bad; id.yaml',
+        'bad$(id).yaml',
+        '../traversal.yaml',
+        '.hidden.yaml',
+        'space name.yaml',
+        'pipe|name.yaml',
+    ]));
+
+    expect($files->all())->toBe([
+        'good-service.yaml',
+        'router_config.yml',
+    ]);
+});
+
+test('dynamic configuration loader escapes full file path before cat command', function () {
+    $fullPath = '/data/coolify/proxy/dynamic/good-service.yaml';
+
+    expect('cat '.escapeshellarg($fullPath))
+        ->toBe("cat '/data/coolify/proxy/dynamic/good-service.yaml'");
 });

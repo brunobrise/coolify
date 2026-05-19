@@ -117,7 +117,7 @@ class User extends Authenticatable implements SendsEmail
                     if ($user_alone_in_team) {
                         static::finalizeTeamDeletion($user, $team);
                         // Delete any pending team invitations for this user
-                        TeamInvitation::whereEmail($user->email)->delete();
+                        TeamInvitation::whereEmail($user->email)->whereTeamId($team->id)->delete();
 
                         continue;
                     }

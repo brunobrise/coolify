@@ -7,6 +7,7 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Models\OauthSetting;
+use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -81,8 +82,12 @@ class FortifyServiceProvider extends ServiceProvider
                 $user->updated_at = now();
                 $user->save();
 
-                // Check if user has a pending invitation they haven't accepted yet
-                $invitation = \App\Models\TeamInvitation::whereEmail($email)->first();
+                // Auto-accept only when the email maps to one unambiguous pending invitation.
+                $pendingInvitations = TeamInvitation::whereEmail($email)
+                    ->get()
+                    ->filter(fn ($invitation) => $invitation->isValid())
+                    ->values();
+                $invitation = $pendingInvitations->count() === 1 ? $pendingInvitations->first() : null;
                 if ($invitation && $invitation->isValid()) {
                     // User is logging in for the first time after being invited
                     // Attach them to the invited team if not already attached

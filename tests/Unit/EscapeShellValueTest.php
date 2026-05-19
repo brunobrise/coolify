@@ -40,7 +40,7 @@ it('produces correct output when passed through executeInDocker', function () {
     // The full docker command should properly nest the quoting
     expect($dockerCmd)->toContain('NIXPACKS_BUILD_CMD=npx prisma generate && npx prisma db push && npm run build');
     // Verify it's wrapped in docker exec bash -c
-    expect($dockerCmd)->toStartWith("docker exec test-container bash -c '");
+    expect($dockerCmd)->toStartWith("docker exec 'test-container' bash -c '");
     expect($dockerCmd)->toEndWith("'");
 });
 
@@ -53,5 +53,5 @@ it('produces correct output for build-cmd with chained commands through executeI
 
     // The build command value must remain intact inside the quoting
     expect($dockerCmd)->toContain('npx prisma generate && npm run build');
-    expect($dockerCmd)->toStartWith("docker exec test-container bash -c '");
+    expect($dockerCmd)->toStartWith("docker exec 'test-container' bash -c '");
 });

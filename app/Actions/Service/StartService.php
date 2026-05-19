@@ -21,29 +21,33 @@ class StartService
         $service->saveComposeConfigs();
         $service->isConfigurationChanged(save: true);
         $workdir = $service->workdir();
+        $composeFile = "{$workdir}/docker-compose.yml";
         // $commands[] = "cd {$workdir}";
-        $commands[] = "echo 'Saved configuration files to {$workdir}.'";
+        $commands[] = 'echo '.escapeshellarg("Saved configuration files to {$workdir}.");
         // Ensure .env exists in the correct directory before docker compose tries to load it
         // This is defensive programming - saveComposeConfigs() already creates it,
         // but we guarantee it here in case of any edge cases or manual deployments
-        $commands[] = "touch {$workdir}/.env";
+        $commands[] = 'touch '.escapeshellarg("{$workdir}/.env");
         if ($pullLatestImages) {
             $commands[] = "echo 'Pulling images.'";
-            $commands[] = "docker compose --project-directory {$workdir} pull";
+            $commands[] = 'docker compose --project-directory '.escapeshellarg($workdir).' pull';
         }
         if ($service->networks()->count() > 0) {
             $commands[] = "echo 'Creating Docker network.'";
-            $commands[] = "docker network inspect $service->uuid >/dev/null 2>&1 || docker network create --attachable $service->uuid";
+            $commands[] = dockerNetworkInspectCommand((string) $service->uuid).' >/dev/null 2>&1 || '.dockerNetworkCreateCommand((string) $service->uuid, attachable: true);
         }
         $commands[] = 'echo Starting service.';
-        $commands[] = "docker compose --project-directory {$workdir} -f {$workdir}/docker-compose.yml --project-name {$service->uuid} up -d --remove-orphans --force-recreate --build";
-        $commands[] = "docker network connect $service->uuid coolify-proxy >/dev/null 2>&1 || true";
+        $commands[] = 'docker compose --project-directory '.escapeshellarg($workdir)
+            .' -f '.escapeshellarg($composeFile)
+            .' --project-name '.escapeshellarg((string) $service->uuid)
+            .' up -d --remove-orphans --force-recreate --build';
+        $commands[] = dockerNetworkConnectCommand((string) $service->uuid, 'coolify-proxy').' >/dev/null 2>&1 || true';
         if (data_get($service, 'connect_to_docker_network')) {
             $compose = data_get($service, 'docker_compose', []);
-            $safeNetwork = escapeshellarg($service->destination->network);
             $serviceNames = data_get(Yaml::parse($compose), 'services', []);
             foreach ($serviceNames as $serviceName => $serviceConfig) {
-                $commands[] = "docker network connect --alias {$serviceName}-{$service->uuid} {$safeNetwork} {$serviceName}-{$service->uuid} >/dev/null 2>&1 || true";
+                $containerName = "{$serviceName}-{$service->uuid}";
+                $commands[] = dockerNetworkConnectCommand((string) $service->destination->network, $containerName, $containerName).' >/dev/null 2>&1 || true';
             }
         }
 

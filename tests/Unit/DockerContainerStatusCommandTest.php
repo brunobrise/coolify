@@ -117,6 +117,45 @@ it('prevents command injection in docker network disconnect arguments', function
         ->not->toContain('docker network disconnect app-network;');
 });
 
+it('quotes docker network connect arguments', function () {
+    expect(dockerNetworkConnectCommand('app-network', 'coolify-proxy', 'web-app'))
+        ->toBe("docker network connect --alias 'web-app' 'app-network' 'coolify-proxy'");
+});
+
+it('prevents command injection in docker network connect arguments', function () {
+    $command = dockerNetworkConnectCommand('app-network; id #', 'web; whoami #', 'alias; uname #');
+
+    expect($command)
+        ->toBe("docker network connect --alias 'alias; uname #' 'app-network; id #' 'web; whoami #'")
+        ->not->toContain('docker network connect --alias alias;');
+});
+
+it('quotes docker network create arguments', function () {
+    expect(dockerNetworkCreateCommand('app-network', attachable: true, driver: 'overlay'))
+        ->toBe("docker network create --driver 'overlay' --attachable 'app-network'");
+});
+
+it('prevents command injection in docker network create arguments', function () {
+    $command = dockerNetworkCreateCommand('app-network; id #', attachable: true, driver: 'overlay; whoami #');
+
+    expect($command)
+        ->toBe("docker network create --driver 'overlay; whoami #' --attachable 'app-network; id #'")
+        ->not->toContain('docker network create --driver overlay;');
+});
+
+it('quotes docker network inspect arguments', function () {
+    expect(dockerNetworkInspectCommand('app-network'))
+        ->toBe("docker network inspect 'app-network'");
+});
+
+it('prevents command injection in docker network inspect arguments', function () {
+    $command = dockerNetworkInspectCommand('app-network; id #');
+
+    expect($command)
+        ->toBe("docker network inspect 'app-network; id #'")
+        ->not->toContain('docker network inspect app-network;');
+});
+
 it('quotes docker network remove arguments', function () {
     expect(dockerNetworkRemoveCommand('app-network', force: true))
         ->toBe("docker network rm -f 'app-network'");

@@ -203,6 +203,26 @@ function dockerNetworkDisconnectCommand(string $network, string $container): str
     return 'docker network disconnect '.escapeshellarg($network).' '.escapeshellarg($container);
 }
 
+function dockerNetworkConnectCommand(string $network, string $container, ?string $alias = null): string
+{
+    $aliasFlag = filled($alias) ? ' --alias '.escapeshellarg($alias) : '';
+
+    return 'docker network connect'.$aliasFlag.' '.escapeshellarg($network).' '.escapeshellarg($container);
+}
+
+function dockerNetworkCreateCommand(string $network, bool $attachable = false, ?string $driver = null): string
+{
+    $driverFlag = filled($driver) ? ' --driver '.escapeshellarg($driver) : '';
+    $attachableFlag = $attachable ? ' --attachable' : '';
+
+    return 'docker network create'.$driverFlag.$attachableFlag.' '.escapeshellarg($network);
+}
+
+function dockerNetworkInspectCommand(string $network): string
+{
+    return 'docker network inspect '.escapeshellarg($network);
+}
+
 function dockerNetworkRemoveCommand(string $network, bool $force = false): string
 {
     $forceFlag = $force ? '-f ' : '';

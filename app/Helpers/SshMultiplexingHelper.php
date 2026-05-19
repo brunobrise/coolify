@@ -114,6 +114,8 @@ class SshMultiplexingHelper
         $sshConfig = self::serverSshConfiguration($server);
         $sshKeyLocation = $sshConfig['sshKeyLocation'];
         $muxSocket = $sshConfig['muxFilename'];
+        $escapedSource = self::escapedScpPath($source);
+        $escapedTarget = self::escapedScpRemoteTarget($server, $dest);
 
         $timeout = config('constants.ssh.command_timeout');
         $muxPersistTime = config('constants.ssh.mux_persist_time');
@@ -141,13 +143,23 @@ class SshMultiplexingHelper
         }
 
         $scp_command .= self::getCommonSshOptions($server, $sshKeyLocation, self::getConnectionTimeout($server), config('constants.ssh.server_interval'), isScp: true);
-        if ($server->isIpv6()) {
-            $scp_command .= "{$source} ".escapeshellarg($server->user).'@['.escapeshellarg($server->ip)."]:{$dest}";
-        } else {
-            $scp_command .= "{$source} ".self::escapedUserAtHost($server).":{$dest}";
-        }
+        $scp_command .= "{$escapedSource} {$escapedTarget}";
 
         return $scp_command;
+    }
+
+    public static function escapedScpPath(string $path): string
+    {
+        return escapeshellarg($path);
+    }
+
+    public static function escapedScpRemoteTarget(Server $server, string $dest): string
+    {
+        if ($server->isIpv6()) {
+            return escapeshellarg($server->user).'@['.escapeshellarg($server->ip).']:'.self::escapedScpPath($dest);
+        }
+
+        return self::escapedUserAtHost($server).':'.self::escapedScpPath($dest);
     }
 
     public static function generateSshCommand(Server $server, string $command, bool $disableMultiplexing = false)

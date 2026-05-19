@@ -175,6 +175,18 @@ function dockerStackRemoveCommand(string $stack_name): string
     return 'docker stack rm '.escapeshellarg($stack_name);
 }
 
+function dockerNetworkDisconnectCommand(string $network, string $container): string
+{
+    return 'docker network disconnect '.escapeshellarg($network).' '.escapeshellarg($container);
+}
+
+function dockerNetworkRemoveCommand(string $network, bool $force = false): string
+{
+    $forceFlag = $force ? '-f ' : '';
+
+    return "docker network rm {$forceFlag}".escapeshellarg($network);
+}
+
 function getContainerStatus(Server $server, string $container_id, bool $all_data = false, bool $throwError = false)
 {
     if ($server->isSwarm()) {

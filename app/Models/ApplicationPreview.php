@@ -52,9 +52,8 @@ class ApplicationPreview extends BaseModel
                     if (! preg_match(ValidationPatterns::DOCKER_NETWORK_PATTERN, $key)) {
                         return;
                     }
-                    $k = escapeshellarg($key);
-                    instant_remote_process(["docker network disconnect {$k} coolify-proxy"], $server, false);
-                    instant_remote_process(["docker network rm {$k}"], $server, false);
+                    instant_remote_process([dockerNetworkDisconnectCommand($key, 'coolify-proxy')], $server, false);
+                    instant_remote_process([dockerNetworkRemoveCommand($key)], $server, false);
                 });
             } else {
                 // Regular application volume cleanup

@@ -68,9 +68,11 @@ it('builds a base64 manifest write command', function () {
     $builder = new KubernetesKubectlCommandBuilder;
 
     expect($builder->writeManifest('/tmp/app.yaml', "kind: Service\n"))
-        ->toBe("printf %s 'a2luZDogU2VydmljZQo=' | base64 -d > '/tmp/app.yaml'");
+        ->toBe("printf %s 'a2luZDogU2VydmljZQo=' | base64 -d | tee -- '/tmp/app.yaml' > /dev/null");
     expect($builder->writeKubeconfig('/tmp/kubeconfig', "apiVersion: v1\n"))
-        ->toBe("printf %s 'YXBpVmVyc2lvbjogdjEK' | base64 -d > '/tmp/kubeconfig' && chmod 600 '/tmp/kubeconfig'");
+        ->toBe("printf %s 'YXBpVmVyc2lvbjogdjEK' | base64 -d | tee -- '/tmp/kubeconfig' > /dev/null && chmod 600 '/tmp/kubeconfig'");
+    expect($builder->writeManifest('/tmp/app.yaml; id #', "kind: Service\n"))
+        ->toBe("printf %s 'a2luZDogU2VydmljZQo=' | base64 -d | tee -- '/tmp/app.yaml; id #' > /dev/null");
 });
 
 it('uses the explicit kubeconfig path for mutable kubernetes commands', function () {

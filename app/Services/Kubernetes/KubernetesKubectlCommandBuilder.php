@@ -170,7 +170,7 @@ class KubernetesKubectlCommandBuilder
 
     public function writeFile(string $path, string $contents): string
     {
-        return 'printf %s '.escapeshellarg(base64_encode($contents)).' | base64 -d > '.escapeshellarg($path);
+        return writeBase64FileCommand($path, base64_encode($contents));
     }
 
     private function base(KubernetesCluster $cluster, ?string $kubeconfigPath = null): string

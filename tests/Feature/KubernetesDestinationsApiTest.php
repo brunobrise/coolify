@@ -136,3 +136,15 @@ test('does not delete kubernetes destinations with attached resources', function
         ->deleteJson("/api/v1/destinations/kubernetes/{$destination->uuid}")
         ->assertBadRequest();
 });
+
+test('hides kubeconfig attributes during model serialization', function () {
+    $destination = KubernetesCluster::factory()->create([
+        'server_id' => $this->server->id,
+        'kubeconfig_path' => '/etc/kubernetes/admin.conf',
+        'kubeconfig' => "apiVersion: v1\nkind: Config\n",
+    ]);
+
+    expect($destination->toArray())
+        ->not->toHaveKey('kubeconfig')
+        ->not->toHaveKey('kubeconfig_path');
+});

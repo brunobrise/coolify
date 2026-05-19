@@ -47,7 +47,7 @@ function remote_process(
 
     $properties = [
         'server_uuid' => $server->uuid,
-        'command' => $command_string,
+        'command' => remove_iip($command_string),
         'type' => $type,
         'type_uuid' => $type_uuid,
         'status' => ProcessStatus::QUEUED->value,
@@ -129,7 +129,7 @@ function instant_remote_process_with_timeout(Collection|array $command, Server $
         },
         [
             'server' => $server->ip,
-            'command_preview' => substr($command_string, 0, 100),
+            'command_preview' => substr(remove_iip($command_string), 0, 100),
             'function' => 'instant_remote_process_with_timeout',
         ],
         $throwError
@@ -165,7 +165,7 @@ function instant_remote_process(Collection|array $command, Server $server, bool 
         },
         [
             'server' => $server->ip,
-            'command_preview' => substr($command_string, 0, 100),
+            'command_preview' => substr(remove_iip($command_string), 0, 100),
             'function' => 'instant_remote_process',
         ],
         $throwError
@@ -296,6 +296,9 @@ function remove_iip($text)
     // Generic URLs with passwords (covers database URLs, ftp, amqp, ssh, git basic auth, etc.)
     // (protocol://user:password@host → protocol://user:<REDACTED>@host)
     $text = preg_replace('/((?:https?|postgres|mysql|mongodb|rediss?|mariadb|ftp|sftp|ssh|amqp|amqps|ldap|ldaps|s3):\/\/[^:]+:)[^@]+(@)/i', '$1'.REDACTED.'$2', $text);
+
+    // Base64 file-write payloads often contain kubeconfigs, manifests, or env files.
+    $text = preg_replace('/((?:printf %s|echo)\s+)([\'"]?)[A-Za-z0-9+\/=]{32,}\2(\s*\|\s*base64\s+-d)/', '$1$2'.REDACTED.'$2$3', $text);
 
     // Email addresses
     $text = preg_replace('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', REDACTED, $text);

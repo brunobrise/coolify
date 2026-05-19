@@ -106,6 +106,7 @@ class Controller extends BaseController
 
             $email = Str::lower((string) data_get($payload, 'email'));
             $password = (string) data_get($payload, 'password');
+            $invitationUuid = (string) data_get($payload, 'invitation_uuid');
             $expiresAt = (int) data_get($payload, 'expires_at', 0);
 
             if (blank($email) || blank($password) || $expiresAt < now()->timestamp) {
@@ -116,7 +117,7 @@ class Controller extends BaseController
             if (! $user) {
                 return redirect()->route('login');
             }
-            $invitation = TeamInvitation::whereEmail($email)->first();
+            $invitation = $this->resolveInviteLoginInvitation($email, $invitationUuid);
             if (! $invitation || ! $invitation->isValid()) {
                 return redirect()->route('login')->with('error', 'Invalid credentials.');
             }
@@ -132,6 +133,17 @@ class Controller extends BaseController
         }
 
         return redirect()->route('login')->with('error', 'Invalid credentials.');
+    }
+
+    private function resolveInviteLoginInvitation(string $email, string $invitationUuid): ?TeamInvitation
+    {
+        $query = TeamInvitation::whereEmail($email);
+
+        if (filled($invitationUuid)) {
+            $query->whereUuid($invitationUuid);
+        }
+
+        return $query->first();
     }
 
     public function showInvitation()

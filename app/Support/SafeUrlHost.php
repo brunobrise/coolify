@@ -84,6 +84,30 @@ class SafeUrlHost
         return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
     }
 
+    public static function redactedUrlForLog(string $url): string
+    {
+        $parsed = parse_url($url);
+        if ($parsed === false) {
+            return '[invalid-url]';
+        }
+
+        $scheme = strtolower($parsed['scheme'] ?? 'url');
+        $host = $parsed['host'] ?? '[missing-host]';
+        $port = isset($parsed['port']) ? ':'.$parsed['port'] : '';
+
+        if (str_contains($host, ':') && ! str_starts_with($host, '[')) {
+            $host = '['.$host.']';
+        }
+
+        $hasSensitiveSuffix = filled($parsed['path'] ?? null)
+            || filled($parsed['query'] ?? null)
+            || filled($parsed['fragment'] ?? null)
+            || filled($parsed['user'] ?? null)
+            || filled($parsed['pass'] ?? null);
+
+        return "{$scheme}://{$host}{$port}".($hasSensitiveSuffix ? '/[redacted]' : '');
+    }
+
     private static function withoutIpv6Zone(string $ip): string
     {
         return str($ip)->before('%')->value();

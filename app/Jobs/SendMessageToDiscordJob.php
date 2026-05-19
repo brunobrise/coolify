@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Notifications\Dto\DiscordMessage;
 use App\Rules\SafeWebhookUrl;
+use App\Support\SafeUrlHost;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -63,7 +64,7 @@ class SendMessageToDiscordJob implements ShouldBeEncrypted, ShouldQueue
         }
 
         Log::warning('SendMessageToDiscordJob: blocked unsafe webhook URL', [
-            'url' => $this->webhookUrl,
+            'url' => SafeUrlHost::redactedUrlForLog($this->webhookUrl),
             'errors' => $validator->errors()->all(),
         ]);
 

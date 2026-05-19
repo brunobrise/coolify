@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Rules\SafeWebhookUrl;
+use App\Support\SafeUrlHost;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -50,7 +51,7 @@ class SendWebhookJob implements ShouldBeEncrypted, ShouldQueue
 
         if ($validator->fails()) {
             Log::warning('SendWebhookJob: blocked unsafe webhook URL', [
-                'url' => $this->webhookUrl,
+                'url' => SafeUrlHost::redactedUrlForLog($this->webhookUrl),
                 'errors' => $validator->errors()->all(),
             ]);
 
@@ -59,7 +60,7 @@ class SendWebhookJob implements ShouldBeEncrypted, ShouldQueue
 
         if (isDev()) {
             ray('Sending webhook notification', [
-                'url' => $this->webhookUrl,
+                'url' => SafeUrlHost::redactedUrlForLog($this->webhookUrl),
                 'payload' => $this->payload,
             ]);
         }

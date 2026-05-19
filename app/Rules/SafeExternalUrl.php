@@ -45,7 +45,7 @@ class SafeExternalUrl implements ValidationRule
         if (in_array($host, $internalHosts, true) || str_ends_with($host, '.localhost') || str_ends_with($host, '.local') || str_ends_with($host, '.internal')) {
             Log::warning('External URL points to internal host', [
                 'attribute' => $attribute,
-                'url' => $value,
+                'url' => SafeUrlHost::redactedUrlForLog($value),
                 'host' => $host,
                 'ip' => request()->ip(),
                 'user_id' => auth()->id(),
@@ -69,7 +69,7 @@ class SafeExternalUrl implements ValidationRule
 
             Log::warning('External URL resolves to private or reserved IP', [
                 'attribute' => $attribute,
-                'url' => $value,
+                'url' => SafeUrlHost::redactedUrlForLog($value),
                 'host' => $host,
                 'resolved_ip' => $resolvedIp,
                 'ip' => request()->ip(),

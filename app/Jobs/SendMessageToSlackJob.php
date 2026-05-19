@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Notifications\Dto\SlackMessage;
 use App\Rules\SafeWebhookUrl;
+use App\Support\SafeUrlHost;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -138,7 +139,7 @@ class SendMessageToSlackJob implements ShouldBeEncrypted, ShouldQueue
         }
 
         Log::warning('SendMessageToSlackJob: blocked unsafe webhook URL', [
-            'url' => $this->webhookUrl,
+            'url' => SafeUrlHost::redactedUrlForLog($this->webhookUrl),
             'errors' => $validator->errors()->all(),
         ]);
 

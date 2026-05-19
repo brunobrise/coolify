@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\S3Storage;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 
 class S3StoragePolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -20,7 +23,7 @@ class S3StoragePolicy
      */
     public function view(User $user, S3Storage $storage): bool
     {
-        return $user->teams->contains('id', $storage->team_id);
+        return $this->canViewTeam($user, $storage->team_id);
     }
 
     /**
@@ -28,7 +31,7 @@ class S3StoragePolicy
      */
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -36,8 +39,7 @@ class S3StoragePolicy
      */
     public function update(User $user, S3Storage $storage): bool
     {
-        // return $user->teams->contains('id', $storage->team_id) && $user->isAdmin();
-        return $user->teams->contains('id', $storage->team_id);
+        return $this->canManageTeam($user, $storage->team_id);
     }
 
     /**
@@ -45,8 +47,7 @@ class S3StoragePolicy
      */
     public function delete(User $user, S3Storage $storage): bool
     {
-        // return $user->teams->contains('id', $storage->team_id) && $user->isAdmin();
-        return $user->teams->contains('id', $storage->team_id);
+        return $this->canManageTeam($user, $storage->team_id);
     }
 
     /**
@@ -70,6 +71,6 @@ class S3StoragePolicy
      */
     public function validateConnection(User $user, S3Storage $storage): bool
     {
-        return $user->teams->contains('id', $storage->team_id);
+        return $this->canManageTeam($user, $storage->team_id);
     }
 }

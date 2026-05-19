@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\SwarmDocker;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
 
 class SwarmDockerPolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -20,7 +23,7 @@ class SwarmDockerPolicy
      */
     public function view(User $user, SwarmDocker $swarmDocker): bool
     {
-        return $user->teams->contains('id', $swarmDocker->server->team_id);
+        return $this->canViewTeam($user, $swarmDocker->server?->team_id);
     }
 
     /**
@@ -28,8 +31,7 @@ class SwarmDockerPolicy
      */
     public function create(User $user): bool
     {
-        // return $user->isAdmin();
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -37,7 +39,7 @@ class SwarmDockerPolicy
      */
     public function update(User $user, SwarmDocker $swarmDocker): bool
     {
-        return $user->teams->contains('id', $swarmDocker->server->team_id);
+        return $this->canManageTeam($user, $swarmDocker->server?->team_id);
     }
 
     /**
@@ -45,7 +47,7 @@ class SwarmDockerPolicy
      */
     public function delete(User $user, SwarmDocker $swarmDocker): bool
     {
-        return $user->teams->contains('id', $swarmDocker->server->team_id);
+        return $this->canManageTeam($user, $swarmDocker->server?->team_id);
     }
 
     /**

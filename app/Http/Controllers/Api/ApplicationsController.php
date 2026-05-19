@@ -3972,7 +3972,7 @@ class ApplicationsController extends Controller
         $this->authorize('view', $application);
 
         $persistentStorages = $application->persistentStorages->sortBy('id')->values();
-        $fileStorages = $application->fileStorages->sortBy('id')->values();
+        $fileStorages = sanitizeApiFileStorageCollection($application->fileStorages->sortBy('id')->values());
 
         return response()->json([
             'persistent_storages' => $persistentStorages,
@@ -4187,7 +4187,7 @@ class ApplicationsController extends Controller
             'mount_path' => $storage->mount_path ?? null,
         ]);
 
-        return response()->json($storage);
+        return response()->json(sanitizeApiStorageResponse($storage));
     }
 
     #[OA\Post(
@@ -4312,7 +4312,7 @@ class ApplicationsController extends Controller
                 'resource_type' => $application->getMorphClass(),
             ]);
 
-            return response()->json($storage, 201);
+            return response()->json(sanitizeApiStorageResponse($storage), 201);
         }
 
         // File storage
@@ -4374,7 +4374,7 @@ class ApplicationsController extends Controller
             'mount_path' => $storage->mount_path,
         ]);
 
-        return response()->json($storage, 201);
+        return response()->json(sanitizeApiStorageResponse($storage), 201);
     }
 
     #[OA\Delete(

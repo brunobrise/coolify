@@ -3,6 +3,7 @@
 use App\Enums\BuildPackTypes;
 use App\Enums\RedirectTypes;
 use App\Enums\StaticImageTypes;
+use App\Models\LocalFileVolume;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -77,6 +78,25 @@ function serializeApiResponse($data)
 
         return $d;
     }
+}
+
+function sanitizeApiStorageResponse($storage)
+{
+    if (
+        $storage instanceof LocalFileVolume &&
+        request()->attributes->get('can_read_sensitive', false) === false
+    ) {
+        $storage->makeHidden(['content']);
+    }
+
+    return $storage;
+}
+
+function sanitizeApiFileStorageCollection($storages)
+{
+    return collect($storages)
+        ->map(fn ($storage) => sanitizeApiStorageResponse($storage))
+        ->values();
 }
 
 function sharedDataApplications()

@@ -2022,7 +2022,7 @@ class ServicesController extends Controller
 
         return response()->json([
             'persistent_storages' => $persistentStorages->sortBy('id')->values(),
-            'file_storages' => $fileStorages->sortBy('id')->values(),
+            'file_storages' => sanitizeApiFileStorageCollection($fileStorages->sortBy('id')->values()),
         ]);
     }
 
@@ -2158,7 +2158,7 @@ class ServicesController extends Controller
                 'resource_type' => $subResource->getMorphClass(),
             ]);
 
-            return response()->json($storage, 201);
+            return response()->json(sanitizeApiStorageResponse($storage), 201);
         }
 
         // File storage
@@ -2220,7 +2220,7 @@ class ServicesController extends Controller
             'mount_path' => $storage->mount_path,
         ]);
 
-        return response()->json($storage, 201);
+        return response()->json(sanitizeApiStorageResponse($storage), 201);
     }
 
     #[OA\Patch(
@@ -2457,7 +2457,7 @@ class ServicesController extends Controller
             'mount_path' => $storage->mount_path ?? null,
         ]);
 
-        return response()->json($storage);
+        return response()->json(sanitizeApiStorageResponse($storage));
     }
 
     #[OA\Delete(

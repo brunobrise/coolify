@@ -104,4 +104,18 @@ describe('queue_application_deployment commit resolution', function () {
         $deployment = ApplicationDeploymentQueue::where('deployment_uuid', 'test-deploy-uuid-4')->first();
         expect($deployment->commit)->toBe($pinnedSha);
     });
+
+    test('rejects unsafe webhook commit parameters before queueing', function () {
+        $application = makeApplication($this->environment->id, $this->destination->id, 'HEAD');
+
+        $result = queue_application_deployment(
+            application: $application,
+            deployment_uuid: 'test-deploy-uuid-5',
+            commit: 'abc123;curl example.test',
+            is_webhook: true,
+        );
+
+        expect($result['status'])->toBe('skipped');
+        expect(ApplicationDeploymentQueue::where('deployment_uuid', 'test-deploy-uuid-5')->exists())->toBeFalse();
+    });
 });

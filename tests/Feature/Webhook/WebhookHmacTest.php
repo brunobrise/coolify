@@ -74,6 +74,29 @@ describe('GitHub Manual Webhook HMAC', function () {
         expect($response->getContent())->toContain('Invalid signature');
     });
 
+    test('rejects wildcard repository names before application matching', function () {
+        $app = createApplicationWithWebhook();
+
+        $payload = json_encode([
+            'ref' => 'refs/heads/main',
+            'repository' => ['full_name' => 'test-org/%'],
+            'after' => 'abc123',
+            'commits' => [],
+        ]);
+
+        $response = $this->call('POST', '/webhooks/source/github/events/manual', [], [], [], [
+            'HTTP_X-GitHub-Event' => 'push',
+            'HTTP_X-Hub-Signature-256' => 'sha256=forgedhashvalue',
+            'CONTENT_TYPE' => 'application/json',
+        ], $payload);
+
+        $response->assertOk();
+        expect($response->getContent())
+            ->not->toContain($app->name)
+            ->not->toContain('Invalid signature')
+            ->toContain('No applications found');
+    });
+
     test('accepts push with valid hash', function () {
         $app = createApplicationWithWebhook();
         $secret = $app->manual_webhook_secret_github;

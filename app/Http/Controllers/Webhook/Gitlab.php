@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Webhook;
 use App\Actions\Application\CleanupPreviewDeployment;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Webhook\Concerns\DetectsSkipDeployCommits;
-use App\Models\Application;
+use App\Http\Controllers\Webhook\Concerns\ValidatesManualWebhookPayload;
 use App\Models\ApplicationPreview;
 use Exception;
 use Illuminate\Http\Request;
@@ -15,6 +15,7 @@ use Visus\Cuid2\Cuid2;
 class Gitlab extends Controller
 {
     use DetectsSkipDeployCommits;
+    use ValidatesManualWebhookPayload;
 
     public function manual(Request $request)
     {
@@ -85,20 +86,19 @@ class Gitlab extends Controller
                     return response($return_payloads);
                 }
             }
-            $applications = Application::where('git_repository', 'like', "%$full_name%");
             if ($x_gitlab_event === 'push') {
-                $applications = $applications->where('git_branch', $branch)->get();
+                $applications = $this->manualWebhookApplications($full_name, $branch);
                 if ($applications->isEmpty()) {
                     $return_payloads->push([
                         'status' => 'failed',
-                        'message' => "Nothing to do. No applications found with deploy key set, branch is '$branch' and Git Repository name has $full_name.",
+                        'message' => "Nothing to do. No applications found for this repository and branch '$branch'.",
                     ]);
 
                     return response($return_payloads);
                 }
             }
             if ($x_gitlab_event === 'merge_request') {
-                $applications = $applications->where('git_branch', $base_branch)->get();
+                $applications = $this->manualWebhookApplications($full_name, $base_branch);
                 if ($applications->isEmpty()) {
                     $return_payloads->push([
                         'status' => 'failed',

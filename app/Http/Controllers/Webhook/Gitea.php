@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Webhook;
 use App\Actions\Application\CleanupPreviewDeployment;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Webhook\Concerns\DetectsSkipDeployCommits;
-use App\Models\Application;
+use App\Http\Controllers\Webhook\Concerns\ValidatesManualWebhookPayload;
 use App\Models\ApplicationPreview;
 use Exception;
 use Illuminate\Http\Request;
@@ -15,6 +15,7 @@ use Visus\Cuid2\Cuid2;
 class Gitea extends Controller
 {
     use DetectsSkipDeployCommits;
+    use ValidatesManualWebhookPayload;
 
     public function manual(Request $request)
     {
@@ -58,15 +59,14 @@ class Gitea extends Controller
             if (! $branch) {
                 return response('Nothing to do. No branch found in the request.');
             }
-            $applications = Application::where('git_repository', 'like', "%$full_name%");
             if ($x_gitea_event === 'push') {
-                $applications = $applications->where('git_branch', $branch)->get();
+                $applications = $this->manualWebhookApplications($full_name, $branch);
                 if ($applications->isEmpty()) {
-                    return response("Nothing to do. No applications found with deploy key set, branch is '$branch' and Git Repository name has $full_name.");
+                    return response("Nothing to do. No applications found for this repository and branch '$branch'.");
                 }
             }
             if ($x_gitea_event === 'pull_request') {
-                $applications = $applications->where('git_branch', $base_branch)->get();
+                $applications = $this->manualWebhookApplications($full_name, $base_branch);
                 if ($applications->isEmpty()) {
                     return response("Nothing to do. No applications found with branch '$base_branch'.");
                 }

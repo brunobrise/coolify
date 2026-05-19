@@ -9,6 +9,58 @@ use OpenApi\Attributes as OA;
 
 class ResourcesController extends Controller
 {
+    private const ALWAYS_HIDDEN_FIELDS = [
+        'id',
+        'laravel_through_key',
+        'destination',
+        'environment',
+        'fileStorages',
+        'persistentStorages',
+        'resourceable',
+        'resourceable_id',
+        'resourceable_type',
+        'scheduledBackups',
+        'server',
+        'settings',
+        'source',
+        'tags',
+        'additional_servers',
+    ];
+
+    private const SENSITIVE_FIELDS = [
+        'clickhouse_admin_password',
+        'custom_docker_run_options',
+        'custom_labels',
+        'custom_nginx_configuration',
+        'docker_compose',
+        'docker_compose_custom_build_command',
+        'docker_compose_custom_start_command',
+        'docker_compose_raw',
+        'dockerfile',
+        'dragonfly_password',
+        'external_db_url',
+        'git_full_url',
+        'http_basic_auth_password',
+        'internal_db_url',
+        'keydb_password',
+        'manual_webhook_secret_bitbucket',
+        'manual_webhook_secret_gitea',
+        'manual_webhook_secret_github',
+        'manual_webhook_secret_gitlab',
+        'mariadb_password',
+        'mariadb_root_password',
+        'mongo_initdb_root_password',
+        'mysql_password',
+        'mysql_root_password',
+        'post_deployment_command',
+        'postgres_password',
+        'pre_deployment_command',
+        'private_key_id',
+        'redis_password',
+        'real_value',
+        'value',
+    ];
+
     #[OA\Get(
         summary: 'List',
         description: 'Get all resources.',
@@ -56,7 +108,7 @@ class ResourcesController extends Controller
         }
         $resources = $resources->flatten();
         $resources = $resources->map(function ($resource) {
-            $payload = $resource->toArray();
+            $payload = $this->serializeResource($resource);
             $payload['status'] = $resource->status;
             $payload['type'] = $resource->type();
 
@@ -64,5 +116,15 @@ class ResourcesController extends Controller
         });
 
         return response()->json(serializeApiResponse($resources));
+    }
+
+    private function serializeResource($resource): array
+    {
+        $resource->makeHidden(self::ALWAYS_HIDDEN_FIELDS);
+        if (request()->attributes->get('can_read_sensitive', false) === false) {
+            $resource->makeHidden(self::SENSITIVE_FIELDS);
+        }
+
+        return $resource->toArray();
     }
 }

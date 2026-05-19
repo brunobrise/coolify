@@ -44,7 +44,7 @@ class CheckApplicationDeploymentQueue extends Command
     {
         $deployment->update(['status' => ApplicationDeploymentStatus::FAILED]);
         if ($deployment->server?->isFunctional()) {
-            remote_process(['docker rm -f '.$deployment->deployment_uuid], $deployment->server, false);
+            remote_process([dockerRemoveContainerCommand($deployment->deployment_uuid)], $deployment->server, false);
         }
     }
 }

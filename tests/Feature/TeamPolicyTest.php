@@ -182,3 +182,40 @@ describe('view permission', function () {
         expect($outsider->can('view', $this->team))->toBeFalse();
     });
 });
+
+describe('mixed team role isolation', function () {
+    test('admin in current team cannot manage another team where they are member', function () {
+        $otherTeam = Team::factory()->create();
+        $mixedRoleUser = User::factory()->create();
+
+        $this->team->members()->attach($mixedRoleUser->id, ['role' => 'admin']);
+        $otherTeam->members()->attach($mixedRoleUser->id, ['role' => 'member']);
+
+        $this->actingAs($mixedRoleUser);
+        session(['currentTeam' => $this->team]);
+
+        expect($mixedRoleUser->can('view', $otherTeam))->toBeTrue()
+            ->and($mixedRoleUser->can('update', $otherTeam))->toBeFalse()
+            ->and($mixedRoleUser->can('delete', $otherTeam))->toBeFalse()
+            ->and($mixedRoleUser->can('manageMembers', $otherTeam))->toBeFalse()
+            ->and($mixedRoleUser->can('viewAdmin', $otherTeam))->toBeFalse()
+            ->and($mixedRoleUser->can('manageInvitations', $otherTeam))->toBeFalse();
+    });
+
+    test('admin of target team can manage it even when another team is current', function () {
+        $otherTeam = Team::factory()->create();
+        $mixedRoleUser = User::factory()->create();
+
+        $this->team->members()->attach($mixedRoleUser->id, ['role' => 'member']);
+        $otherTeam->members()->attach($mixedRoleUser->id, ['role' => 'admin']);
+
+        $this->actingAs($mixedRoleUser);
+        session(['currentTeam' => $this->team]);
+
+        expect($mixedRoleUser->can('update', $otherTeam))->toBeTrue()
+            ->and($mixedRoleUser->can('delete', $otherTeam))->toBeTrue()
+            ->and($mixedRoleUser->can('manageMembers', $otherTeam))->toBeTrue()
+            ->and($mixedRoleUser->can('viewAdmin', $otherTeam))->toBeTrue()
+            ->and($mixedRoleUser->can('manageInvitations', $otherTeam))->toBeTrue();
+    });
+});

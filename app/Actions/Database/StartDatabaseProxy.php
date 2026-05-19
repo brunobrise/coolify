@@ -11,6 +11,7 @@ use App\Models\StandaloneMongodb;
 use App\Models\StandaloneMysql;
 use App\Models\StandalonePostgresql;
 use App\Models\StandaloneRedis;
+use App\Notifications\Container\ContainerRestarted;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Symfony\Component\Yaml\Yaml;
 
@@ -29,7 +30,7 @@ class StartDatabaseProxy
         $proxyContainerName = "{$database->uuid}-proxy";
         $isSSLEnabled = $database->enable_ssl ?? false;
 
-        if ($database->getMorphClass() === \App\Models\ServiceDatabase::class) {
+        if ($database->getMorphClass() === ServiceDatabase::class) {
             $databaseType = $database->databaseType();
             $network = $database->service->uuid;
             $server = data_get($database, 'service.destination.server');
@@ -114,7 +115,7 @@ class StartDatabaseProxy
         ];
         $dockercompose_base64 = base64_encode(Yaml::dump($docker_compose, 4, 2));
         $nginxconf_base64 = base64_encode($nginxconf);
-        instant_remote_process(["docker rm -f $proxyContainerName"], $server, false);
+        instant_remote_process([dockerRemoveContainerCommand($proxyContainerName)], $server, false);
 
         try {
             instant_remote_process([
@@ -132,7 +133,7 @@ class StartDatabaseProxy
                     ?? data_get($database, 'service.environment.project.team');
 
                 $team?->notify(
-                    new \App\Notifications\Container\ContainerRestarted(
+                    new ContainerRestarted(
                         "TCP Proxy for {$database->name} database has been disabled due to error: {$e->getMessage()}",
                         $server,
                     )

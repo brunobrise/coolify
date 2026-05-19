@@ -2,6 +2,7 @@
 
 namespace App\Rules;
 
+use App\Support\SafeUrlHost;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Log;
@@ -37,11 +38,11 @@ class SafeExternalUrl implements ValidationRule
             return;
         }
 
-        $host = strtolower($host);
+        $host = SafeUrlHost::normalize($host);
 
         // Block well-known internal hostnames
-        $internalHosts = ['localhost', '0.0.0.0', '::1'];
-        if (in_array($host, $internalHosts) || str_ends_with($host, '.local') || str_ends_with($host, '.internal')) {
+        $internalHosts = ['localhost', '0.0.0.0', '::', '::1'];
+        if (in_array($host, $internalHosts, true) || str_ends_with($host, '.localhost') || str_ends_with($host, '.local') || str_ends_with($host, '.internal')) {
             Log::warning('External URL points to internal host', [
                 'attribute' => $attribute,
                 'url' => $value,
@@ -54,22 +55,23 @@ class SafeExternalUrl implements ValidationRule
             return;
         }
 
-        // Resolve hostname to IP and block private/reserved ranges
-        $ip = gethostbyname($host);
-
-        // gethostbyname returns the original hostname on failure (e.g. unresolvable)
-        if ($ip === $host && ! filter_var($host, FILTER_VALIDATE_IP)) {
+        $resolvedIps = SafeUrlHost::resolvedIps($host);
+        if ($resolvedIps === []) {
             $fail('The :attribute host could not be resolved.');
 
             return;
         }
 
-        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+        foreach ($resolvedIps as $resolvedIp) {
+            if (SafeUrlHost::isPublicIp($resolvedIp)) {
+                continue;
+            }
+
             Log::warning('External URL resolves to private or reserved IP', [
                 'attribute' => $attribute,
                 'url' => $value,
                 'host' => $host,
-                'resolved_ip' => $ip,
+                'resolved_ip' => $resolvedIp,
                 'ip' => request()->ip(),
                 'user_id' => auth()->id(),
             ]);

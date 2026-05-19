@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Rules\SafeWebhookUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -44,7 +45,7 @@ class SendWebhookJob implements ShouldBeEncrypted, ShouldQueue
     {
         $validator = Validator::make(
             ['webhook_url' => $this->webhookUrl],
-            ['webhook_url' => ['required', 'url', new \App\Rules\SafeWebhookUrl]]
+            ['webhook_url' => ['required', 'url', new SafeWebhookUrl]]
         );
 
         if ($validator->fails()) {
@@ -63,7 +64,9 @@ class SendWebhookJob implements ShouldBeEncrypted, ShouldQueue
             ]);
         }
 
-        $response = Http::post($this->webhookUrl, $this->payload);
+        $response = Http::timeout(10)
+            ->withoutRedirecting()
+            ->post($this->webhookUrl, $this->payload);
 
         if (isDev()) {
             ray('Webhook response', [

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Notifications\Dto\SlackMessage;
+use App\Rules\SafeWebhookUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,6 +11,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class SendMessageToSlackJob implements ShouldBeEncrypted, ShouldQueue
 {
@@ -34,6 +37,10 @@ class SendMessageToSlackJob implements ShouldBeEncrypted, ShouldQueue
 
     public function handle(): void
     {
+        if (! $this->hasSafeWebhookUrl()) {
+            return;
+        }
+
         if ($this->isSlackWebhook()) {
             $this->sendToSlack();
 
@@ -64,7 +71,7 @@ class SendMessageToSlackJob implements ShouldBeEncrypted, ShouldQueue
 
     private function sendToSlack(): void
     {
-        Http::post($this->webhookUrl, [
+        Http::timeout(10)->withoutRedirecting()->post($this->webhookUrl, [
             'text' => $this->message->title,
             'blocks' => [
                 [
@@ -106,7 +113,7 @@ class SendMessageToSlackJob implements ShouldBeEncrypted, ShouldQueue
     {
         $username = config('app.name');
 
-        Http::post($this->webhookUrl, [
+        Http::timeout(10)->withoutRedirecting()->post($this->webhookUrl, [
             'username' => $username,
             'attachments' => [
                 [
@@ -117,5 +124,24 @@ class SendMessageToSlackJob implements ShouldBeEncrypted, ShouldQueue
                 ],
             ],
         ]);
+    }
+
+    private function hasSafeWebhookUrl(): bool
+    {
+        $validator = Validator::make(
+            ['webhook_url' => $this->webhookUrl],
+            ['webhook_url' => ['required', 'url', new SafeWebhookUrl]]
+        );
+
+        if ($validator->passes()) {
+            return true;
+        }
+
+        Log::warning('SendMessageToSlackJob: blocked unsafe webhook URL', [
+            'url' => $this->webhookUrl,
+            'errors' => $validator->errors()->all(),
+        ]);
+
+        return false;
     }
 }

@@ -11,7 +11,7 @@ it('accepts valid public URLs', function () {
 
     $validUrls = [
         'https://api.github.com',
-        'https://github.example.com/api/v3',
+        'https://github.com/api/v3',
         'https://example.com',
         'http://example.com',
     ];
@@ -73,3 +73,15 @@ it('rejects URLs with IPv6 loopback', function () {
     $validator = Validator::make(['url' => 'http://[::1]'], ['url' => $rule]);
     expect($validator->fails())->toBeTrue('Expected rejection: IPv6 loopback');
 });
+
+it('rejects IPv6 link-local and mapped loopback URLs', function (string $url) {
+    $rule = new SafeExternalUrl;
+
+    $validator = Validator::make(['url' => $url], ['url' => $rule]);
+    expect($validator->fails())->toBeTrue("Expected rejection: {$url}");
+})->with([
+    'IPv6 unspecified' => 'http://[::]',
+    'IPv6 link-local' => 'http://[fe80::1]',
+    'IPv4 mapped loopback' => 'http://[::ffff:127.0.0.1]',
+    'localhost absolute' => 'http://localhost.',
+]);

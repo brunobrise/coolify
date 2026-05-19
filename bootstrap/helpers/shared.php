@@ -225,6 +225,13 @@ function validateFilenameSafe(string $input, string $context = 'filename'): stri
     return $input;
 }
 
+function removeDirectoryCommand(string $path, string $context = 'directory path'): string
+{
+    validateShellSafePath($path, $context);
+
+    return 'rm -rf '.escapeshellarg($path);
+}
+
 /**
  * Validate that a databases_to_backup input string is safe from command injection.
  *

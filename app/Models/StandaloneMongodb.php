@@ -163,7 +163,7 @@ class StandaloneMongodb extends BaseModel
         $server = data_get($this, 'destination.server');
         $workdir = $this->workdir();
         if (str($workdir)->endsWith($this->uuid)) {
-            instant_remote_process(['rm -rf '.$this->workdir()], $server, false);
+            instant_remote_process([removeDirectoryCommand($workdir, 'database configuration directory')], $server, false);
         }
     }
 

@@ -231,6 +231,16 @@ function removeDirectoryCommand(string $path, string $context = 'directory path'
     return 'rm -rf '.escapeshellarg($path);
 }
 
+function killProcessCommand(string|int $processId): string
+{
+    $processId = trim((string) $processId);
+    if (preg_match('/\A[1-9][0-9]*\z/', $processId) !== 1) {
+        throw new InvalidArgumentException('Invalid process id.');
+    }
+
+    return 'kill -9 '.$processId;
+}
+
 /**
  * Validate that a databases_to_backup input string is safe from command injection.
  *

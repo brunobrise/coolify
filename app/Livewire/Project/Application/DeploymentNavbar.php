@@ -75,7 +75,7 @@ class DeploymentNavbar extends Component
     public function cancel()
     {
         $deployment_uuid = $this->application_deployment_queue->deployment_uuid;
-        $kill_command = "docker rm -f {$deployment_uuid}";
+        $kill_command = dockerRemoveContainerCommand($deployment_uuid);
         $build_server_id = $this->application_deployment_queue->build_server_id ?? $this->application->destination->server_id;
         $server_id = $this->application_deployment_queue->server_id ?? $this->application->destination->server_id;
 
@@ -111,7 +111,7 @@ class DeploymentNavbar extends Component
 
             // Try to stop the helper container if it exists
             // Check if container exists first
-            $checkCommand = "docker ps -a --filter name={$deployment_uuid} --format '{{.Names}}'";
+            $checkCommand = dockerPsNamesByNameCommand($deployment_uuid);
             $containerExists = instant_remote_process([$checkCommand], $server);
 
             if ($containerExists && str($containerExists)->trim()->isNotEmpty()) {
@@ -125,7 +125,7 @@ class DeploymentNavbar extends Component
             // Also try to kill any running process if we have a process ID
             if ($this->application_deployment_queue->current_process_id) {
                 try {
-                    $processKillCommand = "kill -9 {$this->application_deployment_queue->current_process_id}";
+                    $processKillCommand = killProcessCommand($this->application_deployment_queue->current_process_id);
                     instant_remote_process([$processKillCommand], $server);
                 } catch (\Throwable $e) {
                     // Process might already be gone, that's ok

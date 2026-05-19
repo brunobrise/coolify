@@ -145,12 +145,11 @@ class DeleteResourceJob implements ShouldBeEncrypted, ShouldQueue
 
                 // Check if helper container exists and kill it
                 $deployment_uuid = $activeDeployment->deployment_uuid;
-                $escapedDeploymentUuid = escapeshellarg($deployment_uuid);
-                $checkCommand = "docker ps -a --filter name={$escapedDeploymentUuid} --format '{{.Names}}'";
+                $checkCommand = dockerPsNamesByNameCommand($deployment_uuid);
                 $containerExists = instant_remote_process([$checkCommand], $server);
 
                 if ($containerExists && str($containerExists)->trim()->isNotEmpty()) {
-                    instant_remote_process(["docker rm -f {$escapedDeploymentUuid}"], $server);
+                    instant_remote_process([dockerRemoveContainerCommand($deployment_uuid)], $server);
                     $activeDeployment->addLogEntry('Deployment container stopped.');
                 } else {
                     $activeDeployment->addLogEntry('Helper container not yet started. Deployment will be cancelled when job checks status.');

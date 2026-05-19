@@ -121,3 +121,12 @@ it('preserves ssh scheme URLs with custom ports in deploy_key commands', functio
         ->toContain('-p 22222')
         ->not->toContain('ssh:/git@192.168.56.11:22222/User/Repo.git');
 });
+
+it('uses quoted file write helpers for generated private keys', function () {
+    $source = file_get_contents(__DIR__.'/../../app/Models/Application.php');
+
+    expect($source)
+        ->not->toContain('base64 -d | tee /root/.ssh/id_rsa')
+        ->toContain('writeBase64FileCommand')
+        ->toContain('writeBase64FileInDockerCommand');
+});

@@ -191,20 +191,28 @@ class CleanupNames extends Command
             }
 
             $dbConfig = config('database.connections.'.config('database.default'));
-            $command = sprintf(
-                'pg_dump -h %s -p %s -U %s -d %s > %s',
-                $dbConfig['host'],
-                $dbConfig['port'],
-                $dbConfig['username'],
-                $dbConfig['database'],
-                $backupFile
-            );
+            $command = $this->pgDumpCommand($dbConfig, $backupFile);
 
             exec($command, $output, $returnCode);
         } catch (\Exception $e) {
             // Log failure but continue - backup is optional safeguard
             Log::warning('Name cleanup backup failed', ['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * @param  array{host: string, port: string|int, username: string, database: string}  $dbConfig
+     */
+    protected function pgDumpCommand(array $dbConfig, string $backupFile): string
+    {
+        return sprintf(
+            'pg_dump -h %s -p %s -U %s -d %s > %s',
+            escapeshellarg((string) $dbConfig['host']),
+            escapeshellarg((string) $dbConfig['port']),
+            escapeshellarg((string) $dbConfig['username']),
+            escapeshellarg((string) $dbConfig['database']),
+            escapeshellarg($backupFile)
+        );
     }
 
     protected function truncate(string $text, int $length): string

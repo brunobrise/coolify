@@ -160,6 +160,11 @@ function dockerContainerInspectCommand(string $container_id): string
     return "docker inspect --format '{{json .}}' ".escapeshellarg($container_id);
 }
 
+function dockerRemoveContainerCommand(string $container_id): string
+{
+    return 'docker rm -f '.escapeshellarg($container_id);
+}
+
 function getContainerStatus(Server $server, string $container_id, bool $all_data = false, bool $throwError = false)
 {
     if ($server->isSwarm()) {

@@ -1596,7 +1596,7 @@ class Service extends BaseModel
             $commands[] = 'touch .env';
         } else {
             $envs_base64 = base64_encode($envs->implode("\n"));
-            $commands[] = "echo '$envs_base64' | base64 -d | tee .env > /dev/null";
+            $commands[] = writeBase64FileCommand('.env', $envs_base64);
         }
 
         instant_remote_process($commands, $this->server);

@@ -108,3 +108,16 @@ test('dynamic configuration loader escapes full file path before cat command', f
     expect('cat '.escapeshellarg($fullPath))
         ->toBe("cat '/data/coolify/proxy/dynamic/good-service.yaml'");
 });
+
+test('proxy configuration writes use quoted base64 helper', function () {
+    foreach ([
+        'app/Livewire/Server/Proxy/NewDynamicConfiguration.php',
+        'app/Actions/Proxy/SaveProxyConfiguration.php',
+    ] as $path) {
+        $source = file_get_contents(__DIR__.'/../../'.$path);
+
+        expect($source)
+            ->not->toContain('base64 -d | tee $')
+            ->toContain('writeBase64FileCommand');
+    }
+});

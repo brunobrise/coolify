@@ -60,6 +60,10 @@ describe('GET /api/v1/deployments/{uuid}', function () {
     });
 
     test('returns deployment when uuid is valid and belongs to team', function () {
+        $this->application->update([
+            'manual_webhook_secret_github' => 'deploy-relation-secret',
+        ]);
+
         $deployment = ApplicationDeploymentQueue::create([
             'deployment_uuid' => 'test-deploy-uuid',
             'application_id' => $this->application->id,
@@ -73,6 +77,11 @@ describe('GET /api/v1/deployments/{uuid}', function () {
 
         $response->assertSuccessful();
         $response->assertJsonFragment(['deployment_uuid' => 'test-deploy-uuid']);
+        expect($response->getContent())
+            ->not->toContain('"application":')
+            ->not->toContain('"server":')
+            ->not->toContain('deploy-relation-secret')
+            ->not->toContain('sentinel_token');
     });
 
     test('returns 404 when deployment belongs to another team', function () {

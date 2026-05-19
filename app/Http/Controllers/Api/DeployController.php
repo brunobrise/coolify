@@ -21,6 +21,10 @@ class DeployController extends Controller
 {
     private function removeSensitiveData($deployment)
     {
+        $deployment->makeHidden([
+            'application',
+            'server',
+        ]);
         if (request()->attributes->get('can_read_sensitive', false) === false) {
             $deployment->makeHidden([
                 'logs',

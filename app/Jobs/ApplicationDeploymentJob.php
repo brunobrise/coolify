@@ -549,7 +549,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
         $this->prepare_builder_image();
         $this->execute_remote_command(
             [
-                executeInDocker($this->deployment_uuid, "echo '$dockerfile_base64' | base64 -d | tee {$this->workdir}{$this->dockerfile_location} > /dev/null"),
+                writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}{$this->dockerfile_location}", $dockerfile_base64),
             ],
         );
         $this->generate_image_names();
@@ -699,7 +699,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
         }
         $this->docker_compose_base64 = base64_encode($yaml);
         $this->execute_remote_command([
-            executeInDocker($this->deployment_uuid, "echo '{$this->docker_compose_base64}' | base64 -d | tee {$this->workdir}{$this->docker_compose_location} > /dev/null"),
+            writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}{$this->docker_compose_location}", $this->docker_compose_base64),
             'hidden' => true,
         ]);
 
@@ -1023,10 +1023,10 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
             if (str($this->configuration_dir)->isNotEmpty()) {
                 $this->execute_remote_command(
                     [
-                        "mkdir -p $this->configuration_dir",
+                        'mkdir -p '.escapeshellarg($this->configuration_dir),
                     ],
                     [
-                        "docker cp {$this->deployment_uuid}:{$this->workdir}/. {$this->configuration_dir}",
+                        'docker cp '.escapeshellarg("{$this->deployment_uuid}:{$this->workdir}/.").' '.escapeshellarg($this->configuration_dir),
                     ],
                 );
             }
@@ -1057,13 +1057,13 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
             }
             $this->execute_remote_command(
                 [
-                    "mkdir -p $mainDir",
+                    'mkdir -p '.escapeshellarg($mainDir),
                 ],
                 [
-                    "echo '{$this->docker_compose_base64}' | base64 -d | tee $composeFileName > /dev/null",
+                    writeBase64FileCommand($composeFileName, $this->docker_compose_base64),
                 ],
                 [
-                    "echo '{$readme}' > $mainDir/README.md",
+                    writeBase64FileCommand("{$mainDir}/README.md", base64_encode($readme)),
                 ]
             );
             if ($this->use_build_server) {
@@ -1478,14 +1478,14 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
                     $this->server = $this->mainServer;
                     $this->execute_remote_command(
                         [
-                            "touch $this->configuration_dir/.env",
+                            'touch '.escapeshellarg("{$this->configuration_dir}/.env"),
                         ]
                     );
                     $this->server = $this->build_server;
                 } else {
                     $this->execute_remote_command(
                         [
-                            "touch $this->configuration_dir/.env",
+                            'touch '.escapeshellarg("{$this->configuration_dir}/.env"),
                         ]
                     );
                 }
@@ -1495,7 +1495,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
                     $this->server = $this->mainServer;
                     $this->execute_remote_command(
                         [
-                            'command' => "rm -f $this->configuration_dir/.env",
+                            'command' => 'rm -f '.escapeshellarg("{$this->configuration_dir}/.env"),
                             'hidden' => true,
                             'ignore_errors' => true,
                         ]
@@ -1503,7 +1503,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
                     $this->server = $this->build_server;
                     $this->execute_remote_command(
                         [
-                            'command' => "rm -f $this->configuration_dir/.env",
+                            'command' => 'rm -f '.escapeshellarg("{$this->configuration_dir}/.env"),
                             'hidden' => true,
                             'ignore_errors' => true,
                         ]
@@ -1511,7 +1511,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
                 } else {
                     $this->execute_remote_command(
                         [
-                            'command' => "rm -f $this->configuration_dir/.env",
+                            'command' => 'rm -f '.escapeshellarg("{$this->configuration_dir}/.env"),
                             'hidden' => true,
                             'ignore_errors' => true,
                         ]
@@ -1529,14 +1529,14 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
         $this->application_deployment_queue->addLogEntry('Creating .env file with runtime variables for container.', hidden: true);
         $this->execute_remote_command(
             [
-                executeInDocker($this->deployment_uuid, "echo '$envs_base64' | base64 -d | tee $this->workdir/.env > /dev/null"),
+                writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}/.env", $envs_base64),
             ]
         );
 
         if (isDev()) {
             $this->execute_remote_command(
                 [
-                    executeInDocker($this->deployment_uuid, "cat $this->workdir/.env"),
+                    executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}/.env")),
                     'hidden' => true,
                 ]
             );
@@ -1547,14 +1547,14 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
             $this->server = $this->mainServer;
             $this->execute_remote_command(
                 [
-                    "echo '$envs_base64' | base64 -d | tee $this->configuration_dir/.env > /dev/null",
+                    writeBase64FileCommand("{$this->configuration_dir}/.env", $envs_base64),
                 ]
             );
             $this->server = $this->build_server;
         } else {
             $this->execute_remote_command(
                 [
-                    "echo '$envs_base64' | base64 -d | tee $this->configuration_dir/.env > /dev/null",
+                    writeBase64FileCommand("{$this->configuration_dir}/.env", $envs_base64),
                 ]
             );
         }
@@ -1796,7 +1796,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
 
             $this->execute_remote_command(
                 [
-                    executeInDocker($this->deployment_uuid, "echo '$envs_base64' | base64 -d | tee ".self::BUILD_TIME_ENV_PATH.' > /dev/null'),
+                    writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_TIME_ENV_PATH, $envs_base64),
                 ]
             );
 
@@ -2012,7 +2012,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
         $this->application_deployment_queue->addLogEntry('Container logs:');
         $this->execute_remote_command(
             [
-                'command' => "docker logs -n 100 {$this->container_name}",
+                'command' => dockerContainerLogsCommand($this->container_name, 100),
                 'type' => 'stderr',
                 'ignore_errors' => true,
             ],
@@ -2072,25 +2072,25 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
             $this->server = $this->mainServer;
             $this->execute_remote_command(
                 [
-                    'command' => "mkdir -p {$this->configuration_dir}",
+                    'command' => 'mkdir -p '.escapeshellarg($this->configuration_dir),
                 ],
             );
             $this->server = $this->build_server;
             $this->execute_remote_command(
                 [
-                    'command' => executeInDocker($this->deployment_uuid, "mkdir -p {$this->workdir}"),
+                    'command' => executeInDocker($this->deployment_uuid, 'mkdir -p '.escapeshellarg($this->workdir)),
                 ],
                 [
-                    'command' => "mkdir -p {$this->configuration_dir}",
+                    'command' => 'mkdir -p '.escapeshellarg($this->configuration_dir),
                 ],
             );
         } else {
             $this->execute_remote_command(
                 [
-                    'command' => executeInDocker($this->deployment_uuid, "mkdir -p {$this->workdir}"),
+                    'command' => executeInDocker($this->deployment_uuid, 'mkdir -p '.escapeshellarg($this->workdir)),
                 ],
                 [
-                    'command' => "mkdir -p {$this->configuration_dir}",
+                    'command' => 'mkdir -p '.escapeshellarg($this->configuration_dir),
                 ],
             );
         }
@@ -2271,7 +2271,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
                     executeInDocker($this->deployment_uuid, 'mkdir -p /root/.ssh'),
                 ],
                 [
-                    executeInDocker($this->deployment_uuid, "echo '{$private_key}' | base64 -d | tee /root/.ssh/id_rsa > /dev/null"),
+                    writeBase64FileInDockerCommand($this->deployment_uuid, '/root/.ssh/id_rsa', $private_key),
                 ],
                 [
                     executeInDocker($this->deployment_uuid, 'chmod 600 /root/.ssh/id_rsa'),
@@ -2726,7 +2726,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
 
         if (str($this->saved_outputs->get('railpack_config_exists'))->trim()->toString() === 'exists') {
             $this->execute_remote_command([
-                executeInDocker($this->deployment_uuid, "cat {$this->workdir}/".self::RAILPACK_REPOSITORY_CONFIG_PATH),
+                executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}/".self::RAILPACK_REPOSITORY_CONFIG_PATH)),
                 'hidden' => true,
                 'save' => 'railpack_repository_config',
             ]);
@@ -2758,11 +2758,11 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
 
         $this->execute_remote_command(
             [
-                executeInDocker($this->deployment_uuid, "mkdir -p {$this->workdir}/.coolify"),
+                executeInDocker($this->deployment_uuid, 'mkdir -p '.escapeshellarg("{$this->workdir}/.coolify")),
                 'hidden' => true,
             ],
             [
-                executeInDocker($this->deployment_uuid, "echo '{$encodedConfig}' | base64 -d | tee {$configPath} > /dev/null"),
+                writeBase64FileInDockerCommand($this->deployment_uuid, $configPath, $encodedConfig),
                 'hidden' => true,
             ]
         );
@@ -2860,7 +2860,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
         $base64_build_command = base64_encode($build_command);
         $this->execute_remote_command(
             [
-                executeInDocker($this->deployment_uuid, "echo '{$base64_build_command}' | base64 -d | tee ".self::BUILD_SCRIPT_PATH.' > /dev/null'),
+                writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_SCRIPT_PATH, $base64_build_command),
                 'hidden' => true,
             ],
             [
@@ -2903,9 +2903,9 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
 
         $base64_static_build = base64_encode($static_build);
         $this->execute_remote_command(
-            [executeInDocker($this->deployment_uuid, "echo '{$dockerfile}' | base64 -d | tee {$this->workdir}/Dockerfile > /dev/null")],
-            [executeInDocker($this->deployment_uuid, "echo '{$nginx_config}' | base64 -d | tee {$this->workdir}/nginx.conf > /dev/null")],
-            [executeInDocker($this->deployment_uuid, "echo '{$base64_static_build}' | base64 -d | tee ".self::BUILD_SCRIPT_PATH.' > /dev/null'), 'hidden' => true],
+            [writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}/Dockerfile", $dockerfile)],
+            [writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}/nginx.conf", $nginx_config)],
+            [writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_SCRIPT_PATH, $base64_static_build), 'hidden' => true],
             [executeInDocker($this->deployment_uuid, 'cat '.self::BUILD_SCRIPT_PATH), 'hidden' => true],
             [executeInDocker($this->deployment_uuid, 'bash '.self::BUILD_SCRIPT_PATH), 'hidden' => true],
         );
@@ -3086,7 +3086,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
         // Check for custom HEALTHCHECK
         if ($this->application->build_pack === 'dockerfile' || $this->application->dockerfile) {
             $this->execute_remote_command([
-                executeInDocker($this->deployment_uuid, "cat {$this->workdir}{$this->dockerfile_location}"),
+                executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}{$this->dockerfile_location}")),
                 'hidden' => true,
                 'save' => 'dockerfile_from_repo',
                 'ignore_errors' => true,
@@ -3291,7 +3291,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
 
         $this->docker_compose = Yaml::dump($docker_compose, 10);
         $this->docker_compose_base64 = base64_encode($this->docker_compose);
-        $this->execute_remote_command([executeInDocker($this->deployment_uuid, "echo '{$this->docker_compose_base64}' | base64 -d | tee {$this->workdir}/docker-compose.yaml > /dev/null"), 'hidden' => true]);
+        $this->execute_remote_command([writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}/docker-compose.yaml", $this->docker_compose_base64), 'hidden' => true]);
     }
 
     private function generate_local_persistent_volumes()
@@ -3438,13 +3438,13 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
         $base64_build_command = base64_encode($build_command);
         $this->execute_remote_command(
             [
-                executeInDocker($this->deployment_uuid, "echo '{$dockerfile}' | base64 -d | tee {$this->workdir}/Dockerfile > /dev/null"),
+                writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}/Dockerfile", $dockerfile),
             ],
             [
-                executeInDocker($this->deployment_uuid, "echo '{$nginx_config}' | base64 -d | tee {$this->workdir}/nginx.conf > /dev/null"),
+                writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}/nginx.conf", $nginx_config),
             ],
             [
-                executeInDocker($this->deployment_uuid, "echo '{$base64_build_command}' | base64 -d | tee ".self::BUILD_SCRIPT_PATH.' > /dev/null'),
+                writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_SCRIPT_PATH, $base64_build_command),
                 'hidden' => true,
             ],
             [
@@ -3505,13 +3505,13 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
             }
             if ($this->application->build_pack === 'nixpacks') {
                 $this->nixpacks_plan = base64_encode($this->nixpacks_plan);
-                $this->execute_remote_command([executeInDocker($this->deployment_uuid, "echo '{$this->nixpacks_plan}' | base64 -d | tee ".self::NIXPACKS_PLAN_PATH.' > /dev/null'), 'hidden' => true]);
+                $this->execute_remote_command([writeBase64FileInDockerCommand($this->deployment_uuid, self::NIXPACKS_PLAN_PATH, $this->nixpacks_plan), 'hidden' => true]);
                 if ($this->force_rebuild) {
                     $this->execute_remote_command([
                         executeInDocker($this->deployment_uuid, 'nixpacks build -c '.self::NIXPACKS_PLAN_PATH." --no-cache --no-error-without-start -n {$this->build_image_name} {$this->workdir} -o {$this->workdir}"),
                         'hidden' => true,
                     ], [
-                        executeInDocker($this->deployment_uuid, "cat {$this->workdir}/.nixpacks/Dockerfile"),
+                        executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}/.nixpacks/Dockerfile")),
                         'hidden' => true,
                     ]);
                     if ($this->dockerSecretsSupported) {
@@ -3530,7 +3530,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
                         executeInDocker($this->deployment_uuid, 'nixpacks build -c '.self::NIXPACKS_PLAN_PATH." --cache-key '{$this->application->uuid}' --no-error-without-start -n {$this->build_image_name} {$this->workdir} -o {$this->workdir}"),
                         'hidden' => true,
                     ], [
-                        executeInDocker($this->deployment_uuid, "cat {$this->workdir}/.nixpacks/Dockerfile"),
+                        executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}/.nixpacks/Dockerfile")),
                         'hidden' => true,
                     ]);
                     if ($this->dockerSecretsSupported) {
@@ -3549,7 +3549,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
                 $base64_build_command = base64_encode($build_command);
                 $this->execute_remote_command(
                     [
-                        executeInDocker($this->deployment_uuid, "echo '{$base64_build_command}' | base64 -d | tee ".self::BUILD_SCRIPT_PATH.' > /dev/null'),
+                        writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_SCRIPT_PATH, $base64_build_command),
                         'hidden' => true,
                     ],
                     [
@@ -3591,7 +3591,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
                 $base64_build_command = base64_encode($build_command);
                 $this->execute_remote_command(
                     [
-                        executeInDocker($this->deployment_uuid, "echo '{$base64_build_command}' | base64 -d | tee ".self::BUILD_SCRIPT_PATH.' > /dev/null'),
+                        writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_SCRIPT_PATH, $base64_build_command),
                         'hidden' => true,
                     ],
                     [
@@ -3628,13 +3628,13 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
             $base64_build_command = base64_encode($build_command);
             $this->execute_remote_command(
                 [
-                    executeInDocker($this->deployment_uuid, "echo '{$dockerfile}' | base64 -d | tee {$this->workdir}/Dockerfile > /dev/null"),
+                    writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}/Dockerfile", $dockerfile),
                 ],
                 [
-                    executeInDocker($this->deployment_uuid, "echo '{$nginx_config}' | base64 -d | tee {$this->workdir}/nginx.conf > /dev/null"),
+                    writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}/nginx.conf", $nginx_config),
                 ],
                 [
-                    executeInDocker($this->deployment_uuid, "echo '{$base64_build_command}' | base64 -d | tee ".self::BUILD_SCRIPT_PATH.' > /dev/null'),
+                    writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_SCRIPT_PATH, $base64_build_command),
                     'hidden' => true,
                 ],
                 [
@@ -3676,7 +3676,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
                 $base64_build_command = base64_encode($build_command);
                 $this->execute_remote_command(
                     [
-                        executeInDocker($this->deployment_uuid, "echo '{$base64_build_command}' | base64 -d | tee ".self::BUILD_SCRIPT_PATH.' > /dev/null'),
+                        writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_SCRIPT_PATH, $base64_build_command),
                         'hidden' => true,
                     ],
                     [
@@ -3691,13 +3691,13 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
             } else {
                 if ($this->application->build_pack === 'nixpacks') {
                     $this->nixpacks_plan = base64_encode($this->nixpacks_plan);
-                    $this->execute_remote_command([executeInDocker($this->deployment_uuid, "echo '{$this->nixpacks_plan}' | base64 -d | tee ".self::NIXPACKS_PLAN_PATH.' > /dev/null'), 'hidden' => true]);
+                    $this->execute_remote_command([writeBase64FileInDockerCommand($this->deployment_uuid, self::NIXPACKS_PLAN_PATH, $this->nixpacks_plan), 'hidden' => true]);
                     if ($this->force_rebuild) {
                         $this->execute_remote_command([
                             executeInDocker($this->deployment_uuid, 'nixpacks build -c '.self::NIXPACKS_PLAN_PATH." --no-cache --no-error-without-start -n {$this->production_image_name} {$this->workdir} -o {$this->workdir}"),
                             'hidden' => true,
                         ], [
-                            executeInDocker($this->deployment_uuid, "cat {$this->workdir}/.nixpacks/Dockerfile"),
+                            executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}/.nixpacks/Dockerfile")),
                             'hidden' => true,
                         ]);
                         if ($this->dockerSecretsSupported) {
@@ -3716,7 +3716,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
                             executeInDocker($this->deployment_uuid, 'nixpacks build -c '.self::NIXPACKS_PLAN_PATH." --cache-key '{$this->application->uuid}' --no-error-without-start -n {$this->production_image_name} {$this->workdir} -o {$this->workdir}"),
                             'hidden' => true,
                         ], [
-                            executeInDocker($this->deployment_uuid, "cat {$this->workdir}/.nixpacks/Dockerfile"),
+                            executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}/.nixpacks/Dockerfile")),
                             'hidden' => true,
                         ]);
                         if ($this->dockerSecretsSupported) {
@@ -3734,7 +3734,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
                     $base64_build_command = base64_encode($build_command);
                     $this->execute_remote_command(
                         [
-                            executeInDocker($this->deployment_uuid, "echo '{$base64_build_command}' | base64 -d | tee ".self::BUILD_SCRIPT_PATH.' > /dev/null'),
+                            writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_SCRIPT_PATH, $base64_build_command),
                             'hidden' => true,
                         ],
                         [
@@ -3777,7 +3777,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
                     $base64_build_command = base64_encode($build_command);
                     $this->execute_remote_command(
                         [
-                            executeInDocker($this->deployment_uuid, "echo '{$base64_build_command}' | base64 -d | tee ".self::BUILD_SCRIPT_PATH.' > /dev/null'),
+                            writeBase64FileInDockerCommand($this->deployment_uuid, self::BUILD_SCRIPT_PATH, $base64_build_command),
                             'hidden' => true,
                         ],
                         [
@@ -3865,23 +3865,23 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
         try {
             // Ensure .env file exists before docker compose tries to load it (defensive programming)
             $this->execute_remote_command(
-                ["touch {$this->configuration_dir}/.env", 'hidden' => true],
+                ['touch '.escapeshellarg("{$this->configuration_dir}/.env"), 'hidden' => true],
             );
 
             if ($this->application->build_pack === 'dockerimage') {
                 $this->application_deployment_queue->addLogEntry('Pulling latest images from the registry.');
                 $this->execute_remote_command(
-                    [executeInDocker($this->deployment_uuid, "docker compose --project-name {$this->application->uuid} --project-directory {$this->workdir} pull"), 'hidden' => true],
-                    [executeInDocker($this->deployment_uuid, "{$this->coolify_variables} docker compose --project-name {$this->application->uuid} --project-directory {$this->workdir} up --build -d"), 'hidden' => true],
+                    [executeInDocker($this->deployment_uuid, 'docker compose --project-name '.escapeshellarg($this->application->uuid).' --project-directory '.escapeshellarg($this->workdir).' pull'), 'hidden' => true],
+                    [executeInDocker($this->deployment_uuid, "{$this->coolify_variables} docker compose --project-name ".escapeshellarg($this->application->uuid).' --project-directory '.escapeshellarg($this->workdir).' up --build -d'), 'hidden' => true],
                 );
             } else {
                 if ($this->use_build_server) {
                     $this->execute_remote_command(
-                        ["{$this->coolify_variables} docker compose --project-name {$this->application->uuid} --project-directory {$this->configuration_dir} -f {$this->configuration_dir}{$this->docker_compose_location} up --pull always --build -d", 'hidden' => true],
+                        ["{$this->coolify_variables} docker compose --project-name ".escapeshellarg($this->application->uuid).' --project-directory '.escapeshellarg($this->configuration_dir).' -f '.escapeshellarg("{$this->configuration_dir}{$this->docker_compose_location}").' up --pull always --build -d', 'hidden' => true],
                     );
                 } else {
                     $this->execute_remote_command(
-                        [executeInDocker($this->deployment_uuid, "{$this->coolify_variables} docker compose --project-name {$this->application->uuid} --project-directory {$this->workdir} -f {$this->workdir}{$this->docker_compose_location} up --build -d"), 'hidden' => true],
+                        [executeInDocker($this->deployment_uuid, "{$this->coolify_variables} docker compose --project-name ".escapeshellarg($this->application->uuid).' --project-directory '.escapeshellarg($this->workdir).' -f '.escapeshellarg("{$this->workdir}{$this->docker_compose_location}").' up --build -d'), 'hidden' => true],
                     );
                 }
             }
@@ -4099,7 +4099,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
         }
 
         $this->execute_remote_command([
-            executeInDocker($this->deployment_uuid, "cat {$this->workdir}{$this->dockerfile_location}"),
+            executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}{$this->dockerfile_location}")),
             'hidden' => true,
             'save' => 'dockerfile',
             'ignore_errors' => true,
@@ -4195,11 +4195,11 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
         $this->application_deployment_queue->addLogEntry('Final Dockerfile:', type: 'info', hidden: true);
         $this->execute_remote_command(
             [
-                executeInDocker($this->deployment_uuid, "echo '{$dockerfile_base64}' | base64 -d | tee {$this->workdir}{$this->dockerfile_location} > /dev/null"),
+                writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}{$this->dockerfile_location}", $dockerfile_base64),
                 'hidden' => true,
             ],
             [
-                executeInDocker($this->deployment_uuid, "cat {$this->workdir}{$this->dockerfile_location}"),
+                executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}{$this->dockerfile_location}")),
                 'hidden' => true,
                 'ignore_errors' => true,
             ]);
@@ -4263,7 +4263,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
             // Write the modified Dockerfile back
             $dockerfile_base64 = base64_encode($dockerfile->implode("\n"));
             $this->execute_remote_command([
-                executeInDocker($this->deployment_uuid, "echo '{$dockerfile_base64}' | base64 -d | tee {$dockerfile_path} > /dev/null"),
+                writeBase64FileInDockerCommand($this->deployment_uuid, $dockerfile_path, $dockerfile_base64),
                 'hidden' => true,
             ]);
         }
@@ -4334,7 +4334,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
             }
 
             $this->execute_remote_command([
-                executeInDocker($this->deployment_uuid, "cat {$this->workdir}/{$dockerfilePath}"),
+                executeInDocker($this->deployment_uuid, 'cat '.escapeshellarg("{$this->workdir}/{$dockerfilePath}")),
                 'hidden' => true,
                 'save' => 'dockerfile_content_'.$serviceName,
             ]);
@@ -4425,7 +4425,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
             if ($totalAdded > 0) {
                 $dockerfile_base64 = base64_encode($dockerfile_lines->implode("\n"));
                 $this->execute_remote_command([
-                    executeInDocker($this->deployment_uuid, "echo '{$dockerfile_base64}' | base64 -d | tee {$this->workdir}/{$dockerfilePath} > /dev/null"),
+                    writeBase64FileInDockerCommand($this->deployment_uuid, "{$this->workdir}/{$dockerfilePath}", $dockerfile_base64),
                     'hidden' => true,
                 ]);
 

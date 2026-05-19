@@ -150,6 +150,11 @@ function executeInDocker(string $containerId, string $command)
     return "docker exec {$escapedContainerId} bash -c '{$escapedCommand}'";
 }
 
+function writeBase64FileInDockerCommand(string $containerId, string $path, string $base64): string
+{
+    return executeInDocker($containerId, writeBase64FileCommand($path, $base64));
+}
+
 function dockerServiceStatusCommand(string $container_id): string
 {
     return 'docker service ls --filter '.escapeshellarg("name={$container_id}")." --format '{{json .}}'";

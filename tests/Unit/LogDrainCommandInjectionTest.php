@@ -116,3 +116,21 @@ it('accepts valid log drain field values', function (string $value) {
     'nr-license.key_v2',
     'project-id-123',
 ]);
+
+it('strips newlines from generated log drain env lines', function () {
+    $action = new StartLogDrain;
+    $method = new ReflectionMethod(StartLogDrain::class, 'logDrainEnvLine');
+    $method->setAccessible(true);
+
+    expect($method->invoke($action, 'AXIOM_API_KEY', "safe\nINJECTED_KEY=value\rNEXT=value"))
+        ->toBe("AXIOM_API_KEY=safe INJECTED_KEY=value NEXT=value\n");
+});
+
+it('strips newlines from generated fluent bit config values', function () {
+    $action = new StartLogDrain;
+    $method = new ReflectionMethod(StartLogDrain::class, 'singleLineConfigValue');
+    $method->setAccessible(true);
+
+    expect($method->invoke($action, "server\n[OUTPUT]\nName http"))
+        ->toBe('server [OUTPUT] Name http');
+});

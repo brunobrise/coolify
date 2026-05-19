@@ -52,7 +52,7 @@ class StartLogDrain
 [FILTER]
     Name                modify
     Match               *
-    Set                 coolify.server_name {$server->name}
+    Set                 coolify.server_name {$this->singleLineConfigValue($server->name)}
     Rename              COOLIFY_APP_NAME coolify.app_name
     Rename              COOLIFY_PROJECT_NAME coolify.project_name
     Rename              COOLIFY_SERVER_IP coolify.server_ip
@@ -107,7 +107,7 @@ class StartLogDrain
 [FILTER]
     Name                modify
     Match               *
-    Set                 coolify.server_name {$server->name}
+    Set                 coolify.server_name {$this->singleLineConfigValue($server->name)}
     Rename              COOLIFY_APP_NAME coolify.app_name
     Rename              COOLIFY_PROJECT_NAME coolify.project_name
     Rename              COOLIFY_SERVER_IP coolify.server_ip
@@ -178,11 +178,13 @@ Files:
             $compose_path = $config_path.'/docker-compose.yml';
             $readme_path = $config_path.'/README.md';
             if ($type === 'newrelic') {
-                $envContent = "LICENSE_KEY={$license_key}\nBASE_URI={$base_uri}\n";
+                $envContent = $this->logDrainEnvLine('LICENSE_KEY', $license_key)
+                    .$this->logDrainEnvLine('BASE_URI', $base_uri);
             } elseif ($type === 'highlight') {
-                $envContent = "HIGHLIGHT_PROJECT_ID={$server->settings->logdrain_highlight_project_id}\n";
+                $envContent = $this->logDrainEnvLine('HIGHLIGHT_PROJECT_ID', $server->settings->logdrain_highlight_project_id);
             } elseif ($type === 'axiom') {
-                $envContent = "AXIOM_DATASET_NAME={$server->settings->logdrain_axiom_dataset_name}\nAXIOM_API_KEY={$server->settings->logdrain_axiom_api_key}\n";
+                $envContent = $this->logDrainEnvLine('AXIOM_DATASET_NAME', $server->settings->logdrain_axiom_dataset_name)
+                    .$this->logDrainEnvLine('AXIOM_API_KEY', $server->settings->logdrain_axiom_api_key);
             } elseif ($type === 'custom') {
                 $envContent = '';
             } else {
@@ -192,19 +194,29 @@ Files:
 
             $command = [
                 "echo 'Saving configuration'",
-                "mkdir -p $config_path",
-                "echo '{$parsers}' | base64 -d | tee $parsers_config > /dev/null",
-                "echo '{$config}' | base64 -d | tee $fluent_bit_config > /dev/null",
-                "echo '{$compose}' | base64 -d | tee $compose_path > /dev/null",
-                "echo '{$readme}' | base64 -d | tee $readme_path > /dev/null",
-                "echo '{$envEncoded}' | base64 -d | tee $config_path/.env > /dev/null",
+                'mkdir -p '.escapeshellarg($config_path),
+                writeBase64FileCommand($parsers_config, $parsers),
+                writeBase64FileCommand($fluent_bit_config, $config),
+                writeBase64FileCommand($compose_path, $compose),
+                writeBase64FileCommand($readme_path, $readme),
+                writeBase64FileCommand("{$config_path}/.env", $envEncoded),
                 "echo 'Starting Fluent Bit'",
-                "cd $config_path && docker compose up -d",
+                'docker compose --project-directory '.escapeshellarg($config_path).' up -d',
             ];
 
             return instant_remote_process($command, $server);
         } catch (\Throwable $e) {
             return handleError($e);
         }
+    }
+
+    private function logDrainEnvLine(string $key, mixed $value): string
+    {
+        return $key.'='.$this->singleLineConfigValue($value)."\n";
+    }
+
+    private function singleLineConfigValue(mixed $value): string
+    {
+        return str_replace(["\r", "\n"], ' ', (string) $value);
     }
 }

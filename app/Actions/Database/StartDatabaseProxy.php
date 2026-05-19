@@ -119,11 +119,11 @@ class StartDatabaseProxy
 
         try {
             instant_remote_process([
-                "mkdir -p $configuration_dir",
-                "echo '{$nginxconf_base64}' | base64 -d | tee $configuration_dir/nginx.conf > /dev/null",
-                "echo '{$dockercompose_base64}' | base64 -d | tee $configuration_dir/docker-compose.yaml > /dev/null",
-                "docker compose --project-directory {$configuration_dir} pull",
-                "docker compose --project-directory {$configuration_dir} up -d",
+                'mkdir -p '.escapeshellarg($configuration_dir),
+                writeBase64FileCommand("{$configuration_dir}/nginx.conf", $nginxconf_base64),
+                writeBase64FileCommand("{$configuration_dir}/docker-compose.yaml", $dockercompose_base64),
+                'docker compose --project-directory '.escapeshellarg($configuration_dir).' pull',
+                'docker compose --project-directory '.escapeshellarg($configuration_dir).' up -d',
             ], $server);
         } catch (\RuntimeException $e) {
             if ($this->isNonTransientError($e->getMessage())) {

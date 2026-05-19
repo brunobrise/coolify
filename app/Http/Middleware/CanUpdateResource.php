@@ -5,71 +5,96 @@ namespace App\Http\Middleware;
 use App\Models\Application;
 use App\Models\Environment;
 use App\Models\Project;
+use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Models\ServiceDatabase;
-use App\Models\StandaloneClickhouse;
-use App\Models\StandaloneDragonfly;
-use App\Models\StandaloneKeydb;
-use App\Models\StandaloneMariadb;
-use App\Models\StandaloneMongodb;
-use App\Models\StandaloneMysql;
-use App\Models\StandalonePostgresql;
-use App\Models\StandaloneRedis;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 class CanUpdateResource
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $user = $request->user();
+        if (! $user) {
+            abort(401, 'Authentication required.');
+        }
+
+        $team = $user->currentTeam();
+        if (! $team) {
+            abort(403, 'A current team is required.');
+        }
+
+        if (! $user->isAdminFromSession()) {
+            abort(403, 'You need admin or owner permissions to update this resource.');
+        }
+
+        if ($user->isInstanceAdmin()) {
+            return $next($request);
+        }
+
+        if (! $this->routeResourceBelongsToTeam($request, $team->id)) {
+            abort(404, 'Resource not found.');
+        }
+
         return $next($request);
+    }
 
-        // Get resource from route parameters
-        // $resource = null;
-        // if ($request->route('application_uuid')) {
-        //     $resource = Application::where('uuid', $request->route('application_uuid'))->first();
-        // } elseif ($request->route('service_uuid')) {
-        //     $resource = Service::where('uuid', $request->route('service_uuid'))->first();
-        // } elseif ($request->route('stack_service_uuid')) {
-        //     // Handle ServiceApplication or ServiceDatabase
-        //     $stack_service_uuid = $request->route('stack_service_uuid');
-        //     $resource = ServiceApplication::where('uuid', $stack_service_uuid)->first() ??
-        //                ServiceDatabase::where('uuid', $stack_service_uuid)->first();
-        // } elseif ($request->route('database_uuid')) {
-        //     // Try different database types
-        //     $database_uuid = $request->route('database_uuid');
-        //     $resource = StandalonePostgresql::where('uuid', $database_uuid)->first() ??
-        //                StandaloneMysql::where('uuid', $database_uuid)->first() ??
-        //                StandaloneMariadb::where('uuid', $database_uuid)->first() ??
-        //                StandaloneRedis::where('uuid', $database_uuid)->first() ??
-        //                StandaloneKeydb::where('uuid', $database_uuid)->first() ??
-        //                StandaloneDragonfly::where('uuid', $database_uuid)->first() ??
-        //                StandaloneClickhouse::where('uuid', $database_uuid)->first() ??
-        //                StandaloneMongodb::where('uuid', $database_uuid)->first();
-        // } elseif ($request->route('server_uuid')) {
-        //     // For server routes, check if user can manage servers
-        //     if (! auth()->user()->isAdmin()) {
-        //         abort(403, 'You do not have permission to access this resource.');
-        //     }
+    private function routeResourceBelongsToTeam(Request $request, int $teamId): bool
+    {
+        if ($uuid = $this->routeString($request, 'application_uuid')) {
+            return Application::whereUuid($uuid)
+                ->whereRelation('environment.project', 'team_id', $teamId)
+                ->exists();
+        }
 
-        //     return $next($request);
-        // } elseif ($request->route('environment_uuid')) {
-        //     $resource = Environment::where('uuid', $request->route('environment_uuid'))->first();
-        // } elseif ($request->route('project_uuid')) {
-        //     $resource = Project::ownedByCurrentTeam()->where('uuid', $request->route('project_uuid'))->first();
-        // }
+        if ($uuid = $this->routeString($request, 'service_uuid')) {
+            return Service::whereUuid($uuid)
+                ->whereRelation('environment.project', 'team_id', $teamId)
+                ->exists();
+        }
 
-        // if (! $resource) {
-        //     abort(404, 'Resource not found.');
-        // }
+        if ($uuid = $this->routeString($request, 'stack_service_uuid')) {
+            return ServiceApplication::whereUuid($uuid)
+                ->whereRelation('service.environment.project', 'team_id', $teamId)
+                ->exists()
+                || ServiceDatabase::whereUuid($uuid)
+                    ->whereRelation('service.environment.project', 'team_id', $teamId)
+                    ->exists();
+        }
 
-        // if (! Gate::allows('update', $resource)) {
-        //     abort(403, 'You do not have permission to update this resource.');
-        // }
+        $databaseUuid = $this->routeString($request, 'database_uuid') ?? $this->routeString($request, 'databaseUuid');
+        if ($databaseUuid) {
+            return getResourceByUuid($databaseUuid, $teamId) !== null;
+        }
 
-        // return $next($request);
+        if ($uuid = $this->routeString($request, 'server_uuid')) {
+            return Server::whereUuid($uuid)
+                ->where('team_id', $teamId)
+                ->exists();
+        }
+
+        if ($uuid = $this->routeString($request, 'environment_uuid')) {
+            return Environment::whereUuid($uuid)
+                ->whereRelation('project', 'team_id', $teamId)
+                ->exists();
+        }
+
+        if ($uuid = $this->routeString($request, 'project_uuid')) {
+            return Project::whereUuid($uuid)
+                ->where('team_id', $teamId)
+                ->exists();
+        }
+
+        return true;
+    }
+
+    private function routeString(Request $request, string $key): ?string
+    {
+        $value = $request->route($key);
+
+        return filled($value) ? (string) $value : null;
     }
 }

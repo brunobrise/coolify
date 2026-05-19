@@ -2,8 +2,10 @@
 
 use App\Http\Middleware\CheckForcePasswordReset;
 use App\Http\Middleware\DecideWhatToDoWithUser;
+use App\Http\Middleware\PreventRequestsDuringMaintenance;
 use App\Models\InstanceSettings;
 use App\Models\Team;
+use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
@@ -13,7 +15,8 @@ use Illuminate\Support\Once;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->withoutMiddleware([DecideWhatToDoWithUser::class, CheckForcePasswordReset::class]);
+    $this->withoutMiddleware([DecideWhatToDoWithUser::class, CheckForcePasswordReset::class, PreventRequestsDuringMaintenance::class]);
+    config(['cache.default' => 'array']);
     Once::flush();
     if (! InstanceSettings::find(0)) {
         $settings = new InstanceSettings;
@@ -31,9 +34,16 @@ describe('invitation link login', function () {
             'password' => Hash::make($password),
             'email_verified_at' => null,
         ]);
-        $user->teams()->attach($team->id, ['role' => 'member']);
+        TeamInvitation::create([
+            'team_id' => $team->id,
+            'uuid' => 'invite-email-verification',
+            'email' => $user->email,
+            'role' => 'member',
+            'link' => 'https://example.com/invite',
+            'via' => 'link',
+        ]);
 
-        $token = Crypt::encryptString("{$user->email}@@@{$password}");
+        $token = inviteLoginToken($user->email, $password);
 
         $this->get(route('auth.link', ['token' => $token]));
 
@@ -49,12 +59,91 @@ describe('invitation link login', function () {
             'password' => Hash::make($password),
             'email_verified_at' => null,
         ]);
-        $user->teams()->attach($team->id, ['role' => 'member']);
+        TeamInvitation::create([
+            'team_id' => $team->id,
+            'uuid' => 'invite-login',
+            'email' => $user->email,
+            'role' => 'member',
+            'link' => 'https://example.com/invite',
+            'via' => 'link',
+        ]);
 
-        $token = Crypt::encryptString("{$user->email}@@@{$password}");
+        $token = inviteLoginToken($user->email, $password);
 
         $this->get(route('auth.link', ['token' => $token]));
 
         expect(auth()->id())->toBe($user->id);
     });
+
+    test('rejects legacy password tokens', function () {
+        $password = 'test-password-123';
+        $user = User::factory()->create([
+            'email' => 'legacy-invitee@example.com',
+            'password' => Hash::make($password),
+        ]);
+
+        $token = Crypt::encryptString("{$user->email}@@@{$password}");
+
+        $this->get(route('auth.link', ['token' => $token]));
+
+        expect(auth()->check())->toBeFalse();
+    });
+
+    test('rejects expired invite login tokens', function () {
+        $team = Team::factory()->create();
+        $password = 'test-password-123';
+        $user = User::factory()->create([
+            'email' => 'expired-invitee@example.com',
+            'password' => Hash::make($password),
+        ]);
+        TeamInvitation::create([
+            'team_id' => $team->id,
+            'uuid' => 'invite-expired',
+            'email' => $user->email,
+            'role' => 'member',
+            'link' => 'https://example.com/invite',
+            'via' => 'link',
+        ]);
+
+        $token = inviteLoginToken($user->email, $password, now()->subMinute()->timestamp);
+
+        $this->get(route('auth.link', ['token' => $token]));
+
+        expect(auth()->check())->toBeFalse();
+    });
+
+    test('rejects invite login token replay after invitation is consumed', function () {
+        $team = Team::factory()->create();
+        $password = 'test-password-123';
+        $user = User::factory()->create([
+            'email' => 'replay-invitee@example.com',
+            'password' => Hash::make($password),
+        ]);
+        TeamInvitation::create([
+            'team_id' => $team->id,
+            'uuid' => 'invite-replay',
+            'email' => $user->email,
+            'role' => 'member',
+            'link' => 'https://example.com/invite',
+            'via' => 'link',
+        ]);
+
+        $token = inviteLoginToken($user->email, $password);
+
+        $this->get(route('auth.link', ['token' => $token]));
+        auth()->logout();
+
+        $this->get(route('auth.link', ['token' => $token]));
+
+        expect(auth()->check())->toBeFalse();
+    });
 });
+
+function inviteLoginToken(string $email, string $password, ?int $expiresAt = null): string
+{
+    return Crypt::encryptString(json_encode([
+        'email' => $email,
+        'password' => $password,
+        'expires_at' => $expiresAt ?? now()->addDay()->timestamp,
+    ], JSON_THROW_ON_ERROR));
+}

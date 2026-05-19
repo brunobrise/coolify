@@ -64,3 +64,12 @@ it('escapes environment names in deletion error toasts', function () {
                 && ! str_contains($message, '<script>alert(1)</script>');
         });
 });
+
+it('does not mount delete environment for another team environment', function () {
+    $otherTeam = Team::factory()->create();
+    $otherProject = Project::factory()->create(['team_id' => $otherTeam->id]);
+    $otherEnvironment = Environment::factory()->create(['project_id' => $otherProject->id]);
+
+    Livewire::test(DeleteEnvironment::class, ['environment_id' => $otherEnvironment->id])
+        ->assertStatus(404);
+});

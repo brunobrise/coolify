@@ -21,7 +21,7 @@ class DeleteEnvironment extends Component
     public function mount()
     {
         try {
-            $this->environmentName = Environment::findOrFail($this->environment_id)->name;
+            $this->environmentName = Environment::ownedByCurrentTeam()->findOrFail($this->environment_id)->name;
             $this->parameters = get_route_parameters();
         } catch (\Exception $e) {
             return handleError($e, $this);
@@ -33,7 +33,7 @@ class DeleteEnvironment extends Component
         $this->validate([
             'environment_id' => 'required|int',
         ]);
-        $environment = Environment::findOrFail($this->environment_id);
+        $environment = Environment::ownedByCurrentTeam()->findOrFail($this->environment_id);
         $this->authorize('delete', $environment);
 
         if ($environment->isEmpty()) {

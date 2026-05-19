@@ -175,6 +175,24 @@ function dockerStopContainerCommand(string $container_id, int $timeout): string
     return 'docker stop --time='.(int) $timeout.' '.escapeshellarg($container_id);
 }
 
+function dockerContainerLogsCommand(string $container_id, ?int $lines = 100, bool $timestamps = false, bool $redirectStderr = false): string
+{
+    $lineFlag = $lines === null ? '' : ' -n '.max(1, (int) $lines);
+    $timestampFlag = $timestamps ? ' -t' : '';
+    $stderr = $redirectStderr ? ' 2>&1' : '';
+
+    return 'docker logs'.$lineFlag.$timestampFlag.' '.escapeshellarg($container_id).$stderr;
+}
+
+function dockerServiceLogsCommand(string $service_id, ?int $lines = 100, bool $timestamps = false, bool $redirectStderr = false): string
+{
+    $lineFlag = $lines === null ? '' : ' -n '.max(1, (int) $lines);
+    $timestampFlag = $timestamps ? ' -t' : '';
+    $stderr = $redirectStderr ? ' 2>&1' : '';
+
+    return 'docker service logs'.$lineFlag.$timestampFlag.' '.escapeshellarg($service_id).$stderr;
+}
+
 function dockerStopContainersCommand(array $container_ids, int $timeout): string
 {
     $containers = collect($container_ids)
@@ -1337,13 +1355,9 @@ function validateComposeFile(string $compose, int $server_id): string|Throwable
 function getContainerLogs(Server $server, string $container_id, int $lines = 100): string
 {
     if ($server->isSwarm()) {
-        $output = instant_remote_process([
-            "docker service logs -n {$lines} {$container_id} 2>&1",
-        ], $server);
+        $output = instant_remote_process([dockerServiceLogsCommand($container_id, $lines, redirectStderr: true)], $server);
     } else {
-        $output = instant_remote_process([
-            "docker logs -n {$lines} {$container_id} 2>&1",
-        ], $server);
+        $output = instant_remote_process([dockerContainerLogsCommand($container_id, $lines, redirectStderr: true)], $server);
     }
 
     $output = removeAnsiColors($output);

@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\LocalFileVolume;
+
 /**
  * File Storage Security Tests
  *
@@ -141,3 +143,34 @@ test('file storage accepts relative dot-prefixed paths', function () {
     expect(fn () => validateShellSafePath('./data', 'storage path'))
         ->not->toThrow(Exception::class);
 });
+
+test('file storage quotes owner and mode permission commands', function () {
+    $volume = new LocalFileVolume;
+    $volume->chown = '1000:1000';
+    $volume->chmod = 'u+rw,g-r,o-rwx';
+
+    $commands = (fn () => $this->filePermissionCommands("'/tmp/config file'"))->call($volume);
+
+    expect($commands)->toBe([
+        "chmod +x '/tmp/config file'",
+        "chown '1000:1000' '/tmp/config file'",
+        "chmod 'u+rw,g-r,o-rwx' '/tmp/config file'",
+    ]);
+});
+
+test('file storage rejects unsafe owner and mode permission values', function (string $field, string $value) {
+    $volume = new LocalFileVolume;
+    $volume->{$field} = $value;
+
+    expect(fn () => (fn () => $this->filePermissionCommands("'/tmp/config'"))->call($volume))
+        ->toThrow(InvalidArgumentException::class);
+})->with([
+    'chown command separator' => ['chown', 'root; id'],
+    'chown option injection' => ['chown', '--reference=/etc/passwd'],
+    'chown command substitution' => ['chown', 'root$(id)'],
+    'chown whitespace split' => ['chown', 'root root'],
+    'chmod command separator' => ['chmod', '777; id'],
+    'chmod option injection' => ['chmod', '--reference=/etc/passwd'],
+    'chmod command substitution' => ['chmod', 'a+r$(id)'],
+    'chmod whitespace split' => ['chmod', '777 /tmp/other'],
+]);

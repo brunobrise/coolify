@@ -6,6 +6,7 @@ use App\Events\FileStorageChanged;
 use App\Jobs\ServerStorageSaveJob;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use InvalidArgumentException;
 use Symfony\Component\Yaml\Yaml;
 
 class LocalFileVolume extends BaseModel
@@ -225,26 +226,67 @@ class LocalFileVolume extends BaseModel
             FileStorageChanged::dispatch(data_get($server, 'team_id'));
         }
         if ($isDir === 'NOK' && ! $this->is_directory) {
-            $chmod = data_get($this, 'chmod');
-            $chown = data_get($this, 'chown');
             if ($content) {
                 $content = base64_encode($content);
                 $commands->push("echo '$content' | base64 -d | tee {$escapedPath} > /dev/null");
             } else {
                 $commands->push("touch {$escapedPath}");
             }
-            $commands->push("chmod +x {$escapedPath}");
-            if ($chown) {
-                $commands->push("chown $chown {$escapedPath}");
-            }
-            if ($chmod) {
-                $commands->push("chmod $chmod {$escapedPath}");
-            }
+            $commands->push(...$this->filePermissionCommands($escapedPath));
         } elseif ($isDir === 'NOK' && $this->is_directory) {
             $commands->push("mkdir -p {$escapedPath} > /dev/null 2>&1 || true");
         }
 
         return instant_remote_process($commands, $server);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function filePermissionCommands(string $escapedPath): array
+    {
+        $commands = ["chmod +x {$escapedPath}"];
+        $chown = $this->escapedChown();
+        $chmod = $this->escapedChmod();
+
+        if ($chown) {
+            $commands[] = "chown {$chown} {$escapedPath}";
+        }
+        if ($chmod) {
+            $commands[] = "chmod {$chmod} {$escapedPath}";
+        }
+
+        return $commands;
+    }
+
+    private function escapedChown(): ?string
+    {
+        $chown = data_get($this, 'chown');
+        if (blank($chown)) {
+            return null;
+        }
+
+        $chown = trim((string) $chown);
+        if (! preg_match('/\A(?:(?:[A-Za-z0-9_][A-Za-z0-9_.-]*)(?::(?:[A-Za-z0-9_][A-Za-z0-9_.-]*))?|:(?:[A-Za-z0-9_][A-Za-z0-9_.-]*))\z/', $chown)) {
+            throw new InvalidArgumentException('Invalid file storage owner/group permission.');
+        }
+
+        return escapeshellarg($chown);
+    }
+
+    private function escapedChmod(): ?string
+    {
+        $chmod = data_get($this, 'chmod');
+        if (blank($chmod)) {
+            return null;
+        }
+
+        $chmod = trim((string) $chmod);
+        if (! preg_match('/\A(?:[0-7]{3,4}|[ugoa]*(?:[+\-=][rwxXstugo]+)(?:,[ugoa]*(?:[+\-=][rwxXstugo]+))*)\z/', $chmod)) {
+            throw new InvalidArgumentException('Invalid file storage mode permission.');
+        }
+
+        return escapeshellarg($chmod);
     }
 
     // Accessor for convenient access

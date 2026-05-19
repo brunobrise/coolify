@@ -25,10 +25,19 @@ beforeEach(function () {
 
 function makeRootMcpToken(User $user): string
 {
+    $rootTeam = Team::query()->find(0);
+    if (! $rootTeam) {
+        $rootTeam = new Team([
+            'name' => 'Root Team',
+            'personal_team' => true,
+        ]);
+        $rootTeam->id = 0;
+        $rootTeam->save();
+    }
+
+    $user->teams()->syncWithoutDetaching([$rootTeam->id => ['role' => 'owner']]);
+    session(['currentTeam' => $rootTeam]);
     $token = $user->createToken('mcp-root', ['root']);
-    DB::table('personal_access_tokens')
-        ->where('id', $token->accessToken->id)
-        ->update(['team_id' => '0']);
 
     return $token->plainTextToken;
 }

@@ -13,7 +13,7 @@ class ApiTokens extends Component
 
     public ?string $description = null;
 
-    public ?int $expiresInDays = 30;
+    public int $expiresInDays = 30;
 
     public $tokens = [];
 
@@ -33,6 +33,8 @@ class ApiTokens extends Component
 
     public bool $canUseWritePermissions = false;
 
+    public bool $canUseSensitiveReadPermissions = false;
+
     public function render()
     {
         return view('livewire.security.api-tokens');
@@ -43,6 +45,7 @@ class ApiTokens extends Component
         $this->isApiEnabled = InstanceSettings::get()->is_api_enabled;
         $this->canUseRootPermissions = auth()->user()->can('useRootPermissions', PersonalAccessToken::class);
         $this->canUseWritePermissions = auth()->user()->can('useWritePermissions', PersonalAccessToken::class);
+        $this->canUseSensitiveReadPermissions = auth()->user()->can('useSensitiveReadPermissions', PersonalAccessToken::class);
         $this->getTokens();
     }
 
@@ -66,6 +69,13 @@ class ApiTokens extends Component
             $this->dispatch('error', 'You do not have permission to use write permissions.');
             // Remove write permissions if they were somehow added
             $this->permissions = array_diff($this->permissions, ['write', 'write:sensitive']);
+
+            return;
+        }
+
+        if ($permissionToUpdate == 'read:sensitive' && ! $this->canUseSensitiveReadPermissions) {
+            $this->dispatch('error', 'You do not have permission to read sensitive data.');
+            $this->permissions = array_diff($this->permissions, ['read:sensitive']);
 
             return;
         }
@@ -98,11 +108,15 @@ class ApiTokens extends Component
                 throw new \Exception('You do not have permission to create tokens with write permissions.');
             }
 
+            if (in_array('read:sensitive', $this->permissions) && ! $this->canUseSensitiveReadPermissions) {
+                throw new \Exception('You do not have permission to create tokens that read sensitive data.');
+            }
+
             $this->validate([
                 'description' => 'required|min:3|max:255',
-                'expiresInDays' => 'nullable|integer|in:7,30,60,90,365',
+                'expiresInDays' => 'required|integer|in:7,30,60,90,365',
             ]);
-            $expiresAt = $this->expiresInDays ? now()->addDays($this->expiresInDays) : null;
+            $expiresAt = now()->addDays($this->expiresInDays);
             $token = auth()->user()->createToken($this->description, array_values($this->permissions), $expiresAt);
             $this->getTokens();
             session()->flash('token', $token->plainTextToken);

@@ -192,3 +192,25 @@ test('tool calls fail when the token lacks the read ability', function () {
     expect($response->json('result.isError'))->toBeTrue();
     expect($response->json('result.content.0.text'))->toContain('Missing required permissions');
 });
+
+test('tool calls fail when token user is no longer a member of the token team', function () {
+    $token = $this->user->createToken('mcp-read', ['read'])->plainTextToken;
+    $this->team->members()->detach($this->user->id);
+
+    $response = mcpCallTool($token, 'list_projects');
+    $response->assertOk();
+
+    expect($response->json('result.isError'))->toBeTrue();
+    expect($response->json('result.content.0.text'))->toContain('Token team access is no longer valid');
+});
+
+test('root token cannot call tools after the user is demoted to member', function () {
+    $token = $this->user->createToken('mcp-root', ['root'])->plainTextToken;
+    $this->team->members()->updateExistingPivot($this->user->id, ['role' => 'member']);
+
+    $response = mcpCallTool($token, 'list_projects');
+    $response->assertOk();
+
+    expect($response->json('result.isError'))->toBeTrue();
+    expect($response->json('result.content.0.text'))->toContain('Missing required permissions');
+});

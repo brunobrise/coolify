@@ -19,17 +19,17 @@ class KubernetesClusterPolicy
 
     public function create(User $user): bool
     {
-        return true;
+        return $user->isAdmin() || $user->isOwner();
     }
 
     public function update(User $user, KubernetesCluster $kubernetesCluster): bool
     {
-        return $user->teams->contains('id', $kubernetesCluster->server->team_id);
+        return $user->isAdminOfTeam($kubernetesCluster->server->team_id);
     }
 
     public function delete(User $user, KubernetesCluster $kubernetesCluster): bool
     {
-        return $user->teams->contains('id', $kubernetesCluster->server->team_id);
+        return $user->isAdminOfTeam($kubernetesCluster->server->team_id);
     }
 
     public function restore(User $user, KubernetesCluster $kubernetesCluster): bool

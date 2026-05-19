@@ -492,7 +492,7 @@ class Application extends BaseModel
         $persistentStorages = $this->persistentStorages()->get() ?? collect();
         if ($this->build_pack === 'dockercompose') {
             $server = data_get($this, 'destination.server');
-            instant_remote_process(["cd {$this->dirOnServer()} && docker compose down -v"], $server, false);
+            instant_remote_process([dockerComposeDownVolumesCommand($this->dirOnServer())], $server, false);
         } else {
             if ($persistentStorages->count() === 0) {
                 return;
@@ -508,8 +508,8 @@ class Application extends BaseModel
     {
         $uuid = $this->uuid;
         $server = data_get($this, 'destination.server');
-        instant_remote_process(["docker network disconnect {$uuid} coolify-proxy"], $server, false);
-        instant_remote_process(["docker network rm {$uuid}"], $server, false);
+        instant_remote_process([dockerNetworkDisconnectCommand($uuid, 'coolify-proxy')], $server, false);
+        instant_remote_process([dockerNetworkRemoveCommand($uuid)], $server, false);
     }
 
     public function additional_servers()

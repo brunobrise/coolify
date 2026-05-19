@@ -90,3 +90,13 @@ it('prevents command injection in docker network remove arguments', function () 
         ->toBe("docker network rm 'app-network; id #'")
         ->not->toContain('docker network rm app-network;');
 });
+
+it('quotes Docker Compose project directories', function () {
+    expect(dockerComposeDownVolumesCommand('/data/coolify/applications/test app'))
+        ->toBe("cd '/data/coolify/applications/test app' && docker compose down -v");
+});
+
+it('rejects command injection in Docker Compose project directories', function () {
+    expect(fn () => dockerComposeDownVolumesCommand('/data/coolify/applications/test; id #'))
+        ->toThrow(Exception::class);
+});

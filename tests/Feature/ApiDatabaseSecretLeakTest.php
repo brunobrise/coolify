@@ -103,6 +103,8 @@ test('database list hides mysql and mariadb secrets without sensitive read abili
             ->not->toContain($rootPassword)
             ->not->toContain($userPassword)
             ->not->toContain($rootField)
-            ->not->toContain($userField);
+            ->not->toContain($userField)
+            ->not->toContain('"destination":')
+            ->not->toContain('sentinel_token');
     }
 });

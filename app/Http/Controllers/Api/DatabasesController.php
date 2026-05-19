@@ -32,6 +32,12 @@ class DatabasesController extends Controller
         $database->makeHidden([
             'id',
             'laravel_through_key',
+            'destination',
+            'environment',
+            'fileStorages',
+            'persistentStorages',
+            'scheduledBackups',
+            'tags',
         ]);
         if (request()->attributes->get('can_read_sensitive', false) === false) {
             $database->makeHidden([

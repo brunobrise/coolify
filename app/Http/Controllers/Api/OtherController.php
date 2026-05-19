@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Rules\SafeWebhookUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use OpenApi\Attributes as OA;
@@ -272,8 +273,13 @@ class OtherController extends Controller
         ]);
 
         $webhook_url = config('constants.webhooks.feedback_discord_webhook');
-        if ($webhook_url) {
-            Http::timeout(5)->post($webhook_url, [
+        $isSafeWebhookUrl = validator(
+            ['webhook_url' => $webhook_url],
+            ['webhook_url' => ['required', 'url', new SafeWebhookUrl]]
+        )->passes();
+
+        if ($isSafeWebhookUrl) {
+            Http::timeout(5)->withoutRedirecting()->post($webhook_url, [
                 'content' => $data['content'],
                 'allowed_mentions' => ['parse' => []],
             ]);

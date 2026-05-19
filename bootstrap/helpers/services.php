@@ -192,7 +192,7 @@ function getFilesystemVolumesFromServer(ServiceApplication|ServiceDatabase|Appli
                 $escapedDir = escapedServiceFileStoragePath($dir->value(), 'service file storage directory');
                 instant_remote_process([
                     "mkdir -p {$escapedDir}",
-                    "echo '$content' | base64 -d | tee {$escapedFileLocation}",
+                    writeBase64FileCommand($fileLocation, $content),
                 ], $server);
             } elseif ($isFile === 'NOK' && $isDir === 'NOK' && $fileVolume->is_directory && $isInit) {
                 // Does not exists (no dir or file), flagged as directory, is init

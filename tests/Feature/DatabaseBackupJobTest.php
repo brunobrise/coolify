@@ -69,7 +69,7 @@ test('upload_to_s3 throws exception and disables s3 when storage is null', funct
 test('deleting s3 storage disables s3 on linked backups', function () {
     $team = Team::factory()->create();
 
-    $s3 = S3Storage::create([
+    $s3 = S3Storage::unguarded(fn () => S3Storage::create([
         'name' => 'Test S3',
         'region' => 'us-east-1',
         'key' => 'test-key',
@@ -77,7 +77,7 @@ test('deleting s3 storage disables s3 on linked backups', function () {
         'bucket' => 'test-bucket',
         'endpoint' => 'https://s3.example.com',
         'team_id' => $team->id,
-    ]);
+    ]));
 
     $backup1 = ScheduledDatabaseBackup::create([
         'frequency' => '0 0 * * *',
@@ -157,7 +157,7 @@ test('failed method does not overwrite successful backup status', function () {
     $log->refresh();
     expect($log->status)->toBe('success');
     expect($log->message)->toBe('Backup completed successfully');
-    expect($log->size)->toBe(1024);
+    expect((int) $log->size)->toBe(1024);
 });
 
 test('failed method updates status when backup was not successful', function () {
@@ -199,7 +199,7 @@ test('failed method updates status when backup was not successful', function () 
 test('s3 storage has scheduled backups relationship', function () {
     $team = Team::factory()->create();
 
-    $s3 = S3Storage::create([
+    $s3 = S3Storage::unguarded(fn () => S3Storage::create([
         'name' => 'Test S3',
         'region' => 'us-east-1',
         'key' => 'test-key',
@@ -207,7 +207,7 @@ test('s3 storage has scheduled backups relationship', function () {
         'bucket' => 'test-bucket',
         'endpoint' => 'https://s3.example.com',
         'team_id' => $team->id,
-    ]);
+    ]));
 
     ScheduledDatabaseBackup::create([
         'frequency' => '0 0 * * *',

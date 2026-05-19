@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Support\SafeUrlHost;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -58,8 +59,8 @@ class SendWebhookJob implements ShouldBeEncrypted, ShouldQueue
 
         if (isDev()) {
             ray('Sending webhook notification', [
-                'url' => $this->webhookUrl,
-                'payload' => $this->payload,
+                'url' => SafeUrlHost::redactedUrlForLog($this->webhookUrl),
+                'payload_keys' => array_keys($this->payload),
             ]);
         }
 
@@ -68,7 +69,7 @@ class SendWebhookJob implements ShouldBeEncrypted, ShouldQueue
         if (isDev()) {
             ray('Webhook response', [
                 'status' => $response->status(),
-                'body' => $response->body(),
+                'body_bytes' => strlen($response->body()),
                 'successful' => $response->successful(),
             ]);
         }

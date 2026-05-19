@@ -20,7 +20,6 @@
                     @foreach ($expirationOptions as $days => $label)
                         <option value="{{ $days }}">{{ $label }}</option>
                     @endforeach
-                    <option value="">Never</option>
                 </x-forms.select>
                 <x-forms.button type="submit">Create</x-forms.button>
             </div>
@@ -59,9 +58,16 @@
                         helper="Can trigger deploy webhooks." :checked="in_array('deploy', $permissions)"></x-forms.checkbox>
                     <x-forms.checkbox label="read" domValue="read" wire:model.live="permissions" domValue="read"
                         :checked="in_array('read', $permissions)"></x-forms.checkbox>
-                    <x-forms.checkbox label="read:sensitive" wire:model.live="permissions" domValue="read:sensitive"
-                        helper="Responses will include secrets, logs, passwords, and compose file contents."
-                        :checked="in_array('read:sensitive', $permissions)"></x-forms.checkbox>
+                    @if ($canUseSensitiveReadPermissions)
+                        <x-forms.checkbox label="read:sensitive" wire:model.live="permissions"
+                            domValue="read:sensitive"
+                            helper="Responses will include secrets, logs, passwords, and compose file contents."
+                            :checked="in_array('read:sensitive', $permissions)"></x-forms.checkbox>
+                    @else
+                        <x-forms.checkbox label="read:sensitive (admin/owner only)" disabled
+                            domValue="read:sensitive"
+                            helper="Reading sensitive API data requires admin or owner role" :checked="false"></x-forms.checkbox>
+                    @endif
                 @endif
             </div>
             @if (in_array('root', $permissions))

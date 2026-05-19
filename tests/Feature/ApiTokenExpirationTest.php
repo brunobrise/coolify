@@ -1,14 +1,23 @@
 <?php
 
 use App\Livewire\Security\ApiTokens;
+use App\Models\InstanceSettings;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Once;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    config(['cache.default' => 'array']);
+    config(['app.maintenance.store' => 'array']);
+    $this->withoutMiddleware(PreventRequestsDuringMaintenance::class);
+    InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0, 'is_api_enabled' => true]));
+    Once::flush();
+
     $this->team = Team::factory()->create();
     $this->user = User::factory()->create();
     $this->team->members()->attach($this->user->id, ['role' => 'owner']);
@@ -30,14 +39,13 @@ describe('token creation with expiration', function () {
 
         expect($token)->not->toBeNull()
             ->and($token->expires_at)->not->toBeNull()
-            ->and($token->expires_at->diffInDays(now()))->toBeGreaterThanOrEqual(6)
-            ->and($token->expires_at->diffInDays(now()))->toBeLessThanOrEqual(7);
+            ->and(now()->diffInDays($token->expires_at))->toBeGreaterThanOrEqual(6)
+            ->and(now()->diffInDays($token->expires_at))->toBeLessThanOrEqual(7);
     });
 
-    test('livewire component stores null expires_at when expiresInDays null (Never)', function () {
+    test('livewire component defaults to a finite expiration', function () {
         Livewire::test(ApiTokens::class)
-            ->set('description', 'never-token')
-            ->set('expiresInDays', null)
+            ->set('description', 'default-expiration')
             ->set('permissions', ['read'])
             ->call('addNewToken')
             ->assertHasNoErrors();
@@ -45,7 +53,9 @@ describe('token creation with expiration', function () {
         $token = $this->user->tokens()->latest()->first();
 
         expect($token)->not->toBeNull()
-            ->and($token->expires_at)->toBeNull();
+            ->and($token->expires_at)->not->toBeNull()
+            ->and(now()->diffInDays($token->expires_at))->toBeGreaterThanOrEqual(29)
+            ->and(now()->diffInDays($token->expires_at))->toBeLessThanOrEqual(30);
     });
 
     test('livewire component rejects invalid expiresInDays value', function () {
@@ -53,14 +63,17 @@ describe('token creation with expiration', function () {
             ->set('description', 'bad-token')
             ->set('expiresInDays', 42)
             ->set('permissions', ['read'])
-            ->call('addNewToken')
-            ->assertHasErrors('expiresInDays');
+            ->call('addNewToken');
+
+        expect($this->user->tokens()->where('name', 'bad-token')->exists())->toBeFalse();
     });
 });
 
 describe('expired token rejected on API', function () {
     test('request with expired token returns 401', function () {
         $token = $this->user->createToken('expired', ['read'], now()->subDay());
+        auth()->guard()->logout();
+        $this->flushSession();
 
         $response = $this->withHeaders([
             'Authorization' => 'Bearer '.$token->plainTextToken,
@@ -71,6 +84,8 @@ describe('expired token rejected on API', function () {
 
     test('request with non-expired token works', function () {
         $token = $this->user->createToken('valid', ['read'], now()->addDay());
+        auth()->guard()->logout();
+        $this->flushSession();
 
         $response = $this->withHeaders([
             'Authorization' => 'Bearer '.$token->plainTextToken,

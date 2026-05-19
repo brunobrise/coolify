@@ -19,7 +19,33 @@ trait ResolvesTeam
             return Response::error('Invalid token.');
         }
 
-        if ($token->can('root') || $token->can($ability)) {
+        $teamId = apiNormalizeTeamId(data_get($token, 'team_id'));
+        if (! apiUserBelongsToTeam($user, $teamId)) {
+            auditLog('mcp.auth.team_denied', [
+                'required_ability' => $ability,
+                'token_id' => data_get($token, 'id'),
+                'team_id' => $teamId,
+                'reason' => 'Token user is not a current member of the token team.',
+            ], 'warning');
+
+            return Response::error('Token team access is no longer valid.');
+        }
+
+        if ($token->can('root')) {
+            if (! apiUserCanUsePrivilegedAbilitiesForTeam($user, $teamId)) {
+                auditLog('mcp.auth.ability_denied', [
+                    'required_ability' => $ability,
+                    'token_id' => data_get($token, 'id'),
+                    'reason' => 'Root token used by non-admin team member.',
+                ], 'warning');
+
+                return Response::error("Missing required permissions: {$ability}");
+            }
+
+            return null;
+        }
+
+        if ($token->can($ability)) {
             return null;
         }
 
@@ -30,6 +56,12 @@ trait ResolvesTeam
     {
         $token = $request->user()?->currentAccessToken();
 
-        return $token?->team_id;
+        $teamId = apiNormalizeTeamId(data_get($token, 'team_id'));
+
+        if (! apiUserBelongsToTeam($request->user(), $teamId)) {
+            return null;
+        }
+
+        return $teamId;
     }
 }

@@ -64,3 +64,29 @@ it('prevents command injection in docker stack names', function () {
         ->toBe("docker stack rm 'app-pr-1; id #'")
         ->not->toContain('docker stack rm app-pr-1;');
 });
+
+it('quotes docker network disconnect arguments', function () {
+    expect(dockerNetworkDisconnectCommand('app-network', 'coolify-proxy'))
+        ->toBe("docker network disconnect 'app-network' 'coolify-proxy'");
+});
+
+it('prevents command injection in docker network disconnect arguments', function () {
+    $command = dockerNetworkDisconnectCommand('app-network; id #', 'coolify-proxy; whoami #');
+
+    expect($command)
+        ->toBe("docker network disconnect 'app-network; id #' 'coolify-proxy; whoami #'")
+        ->not->toContain('docker network disconnect app-network;');
+});
+
+it('quotes docker network remove arguments', function () {
+    expect(dockerNetworkRemoveCommand('app-network', force: true))
+        ->toBe("docker network rm -f 'app-network'");
+});
+
+it('prevents command injection in docker network remove arguments', function () {
+    $command = dockerNetworkRemoveCommand('app-network; id #');
+
+    expect($command)
+        ->toBe("docker network rm 'app-network; id #'")
+        ->not->toContain('docker network rm app-network;');
+});

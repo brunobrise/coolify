@@ -165,6 +165,11 @@ function dockerPsNamesByNameCommand(string $container_name): string
     return 'docker ps -a --filter '.escapeshellarg("name={$container_name}")." --format '{{.Names}}'";
 }
 
+function dockerPsNameExistsCommand(string $container_name): string
+{
+    return "docker ps -a --format '{{.Names}}' | grep -Fx -- ".escapeshellarg($container_name);
+}
+
 function dockerRemoveContainerCommand(string $container_id): string
 {
     return 'docker rm -f '.escapeshellarg($container_id);
@@ -239,6 +244,11 @@ function dockerNetworkCreateCommand(string $network, bool $attachable = false, ?
 function dockerNetworkInspectCommand(string $network): string
 {
     return 'docker network inspect '.escapeshellarg($network);
+}
+
+function dockerNetworkExistsCommand(string $network): string
+{
+    return "docker network ls --format '{{.Name}}' | grep -Fx -- ".escapeshellarg($network);
 }
 
 function dockerNetworkRemoveCommand(string $network, bool $force = false): string

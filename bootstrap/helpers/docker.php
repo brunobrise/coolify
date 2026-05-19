@@ -160,6 +160,11 @@ function dockerContainerInspectCommand(string $container_id): string
     return "docker inspect --format '{{json .}}' ".escapeshellarg($container_id);
 }
 
+function dockerPsNamesByNameCommand(string $container_name): string
+{
+    return 'docker ps -a --filter '.escapeshellarg("name={$container_name}")." --format '{{.Names}}'";
+}
+
 function dockerRemoveContainerCommand(string $container_id): string
 {
     return 'docker rm -f '.escapeshellarg($container_id);

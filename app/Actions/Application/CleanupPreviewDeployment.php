@@ -119,12 +119,11 @@ class CleanupPreviewDeployment
     private function killHelperContainer(string $deployment_uuid, $server): void
     {
         try {
-            $escapedUuid = escapeshellarg($deployment_uuid);
-            $checkCommand = "docker ps -a --filter name={$escapedUuid} --format '{{.Names}}'";
+            $checkCommand = dockerPsNamesByNameCommand($deployment_uuid);
             $containerExists = instant_remote_process([$checkCommand], $server);
 
             if ($containerExists && str($containerExists)->trim()->isNotEmpty()) {
-                instant_remote_process(["docker rm -f {$escapedUuid}"], $server);
+                instant_remote_process([dockerRemoveContainerCommand($deployment_uuid)], $server);
             }
         } catch (\Throwable $e) {
             // Silently handle - container may already be gone

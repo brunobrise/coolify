@@ -13,6 +13,19 @@ it('prevents command injection in docker inspect container names', function () {
         ->not->toContain("docker inspect --format '{{json .}}' coolify-proxy;");
 });
 
+it('quotes docker ps name filters', function () {
+    expect(dockerPsNamesByNameCommand('coolify-deployment'))
+        ->toBe("docker ps -a --filter 'name=coolify-deployment' --format '{{.Names}}'");
+});
+
+it('prevents command injection in docker ps name filters', function () {
+    $command = dockerPsNamesByNameCommand("coolify-deployment' --format '{{.ID}}'; id #");
+
+    expect($command)
+        ->toBe("docker ps -a --filter 'name=coolify-deployment'\\'' --format '\\''{{.ID}}'\\''; id #' --format '{{.Names}}'")
+        ->not->toContain("--filter 'name=coolify-deployment' --format '{{.ID}}';");
+});
+
 it('quotes swarm service status filters', function () {
     expect(dockerServiceStatusCommand('coolify-proxy'))
         ->toBe("docker service ls --filter 'name=coolify-proxy' --format '{{json .}}'");

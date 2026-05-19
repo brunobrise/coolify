@@ -244,7 +244,7 @@ class DeployController extends Controller
         // Perform the cancellation
         try {
             $deployment_uuid = $deployment->deployment_uuid;
-            $kill_command = "docker rm -f {$deployment_uuid}";
+            $kill_command = dockerRemoveContainerCommand($deployment_uuid);
             $build_server_id = $deployment->build_server_id ?? $deployment->server_id;
 
             // Mark deployment as cancelled
@@ -260,7 +260,7 @@ class DeployController extends Controller
                 $deployment->addLogEntry('Deployment cancelled by user via API.', 'stderr');
 
                 // Check if container exists and kill it
-                $checkCommand = "docker ps -a --filter name={$deployment_uuid} --format '{{.Names}}'";
+                $checkCommand = dockerPsNamesByNameCommand($deployment_uuid);
                 $containerExists = instant_remote_process([$checkCommand], $server);
 
                 if ($containerExists && str($containerExists)->trim()->isNotEmpty()) {
@@ -273,7 +273,7 @@ class DeployController extends Controller
                 // Kill running process if process ID exists
                 if ($deployment->current_process_id) {
                     try {
-                        $processKillCommand = "kill -9 {$deployment->current_process_id}";
+                        $processKillCommand = killProcessCommand($deployment->current_process_id);
                         instant_remote_process([$processKillCommand], $server);
                     } catch (\Throwable $e) {
                         // Process might already be gone

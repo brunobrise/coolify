@@ -35,6 +35,18 @@ it('rejects private IPv4 addresses', function (string $url) {
     '192.168.x range' => 'http://192.168.1.1',
 ]);
 
+it('rejects obfuscated private IPv4 addresses', function (string $url) {
+    $rule = new SafeExternalUrl;
+
+    $validator = Validator::make(['url' => $url], ['url' => $rule]);
+    expect($validator->fails())->toBeTrue("Expected rejection: {$url}");
+})->with([
+    'integer loopback' => 'http://2130706433',
+    'hex loopback' => 'http://0x7f000001',
+    'octal loopback' => 'http://0177.0.0.1',
+    'short loopback' => 'http://127.1',
+]);
+
 it('rejects cloud metadata IP', function () {
     $rule = new SafeExternalUrl;
 

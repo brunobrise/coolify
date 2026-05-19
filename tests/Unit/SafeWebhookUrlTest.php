@@ -45,6 +45,18 @@ it('rejects loopback addresses', function (string $url) {
     'zero address' => 'http://0.0.0.0',
 ]);
 
+it('rejects obfuscated loopback addresses', function (string $url) {
+    $rule = new SafeWebhookUrl;
+
+    $validator = Validator::make(['url' => $url], ['url' => $rule]);
+    expect($validator->fails())->toBeTrue("Expected rejection: {$url}");
+})->with([
+    'integer loopback' => 'http://2130706433',
+    'hex loopback' => 'http://0x7f000001',
+    'octal loopback' => 'http://0177.0.0.1',
+    'short loopback' => 'http://127.1',
+]);
+
 it('rejects cloud metadata IP', function () {
     $rule = new SafeWebhookUrl;
 

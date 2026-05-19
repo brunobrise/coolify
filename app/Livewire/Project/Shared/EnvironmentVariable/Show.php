@@ -159,7 +159,14 @@ class Show extends Component
             $this->is_required = $this->env->is_required ?? false;
             $this->is_really_required = $this->env->is_really_required ?? false;
             $this->is_shared = $this->env->is_shared ?? false;
-            $this->real_value = $this->env->real_value;
+
+            if (auth()->user()?->can('update', $this->env)) {
+                $this->value = $this->env->value;
+                $this->real_value = $this->env->real_value;
+            } else {
+                $this->value = null;
+                $this->real_value = null;
+            }
         }
     }
 

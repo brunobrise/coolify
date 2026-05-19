@@ -6,6 +6,25 @@ use Symfony\Component\Yaml\Yaml;
 
 trait EnvironmentVariableProtection
 {
+    protected function formatEnvironmentVariablesForDisplay($variables, bool $canReadValues): string
+    {
+        return $variables->map(function ($item) use ($canReadValues) {
+            if ($item->is_shown_once) {
+                return "$item->key=(Locked Secret, delete and add again to change)";
+            }
+
+            if (! $canReadValues) {
+                return "$item->key=(Hidden Secret)";
+            }
+
+            if ($item->is_multiline) {
+                return "$item->key=(Multiline environment variable, edit in normal view)";
+            }
+
+            return "$item->key=$item->value";
+        })->join("\n");
+    }
+
     /**
      * Check if an environment variable is protected from deletion
      *

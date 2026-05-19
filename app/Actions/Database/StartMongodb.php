@@ -35,12 +35,12 @@ class StartMongodb
         $this->commands = [
             "echo 'Starting database.'",
             "echo 'Creating directories.'",
-            "mkdir -p $this->configuration_dir",
+            'mkdir -p '.escapeshellarg($this->configuration_dir),
             "echo 'Directories created successfully.'",
         ];
 
         if (! $this->database->enable_ssl) {
-            $this->commands[] = "rm -rf $this->configuration_dir/ssl";
+            $this->commands[] = removeDirectoryCommand("{$this->configuration_dir}/ssl");
 
             $this->database->sslCertificates()->delete();
 
@@ -58,7 +58,7 @@ class StartMongodb
                 });
         } else {
             $this->commands[] = "echo 'Setting up SSL for this database.'";
-            $this->commands[] = "mkdir -p $this->configuration_dir/ssl";
+            $this->commands[] = 'mkdir -p '.escapeshellarg("{$this->configuration_dir}/ssl");
 
             $server = $this->database->destination->server;
             $caCert = $server->sslCertificates()->where('is_ca_certificate', true)->first();
@@ -255,14 +255,15 @@ class StartMongodb
 
         $docker_compose = Yaml::dump($docker_compose, 10);
         $docker_compose_base64 = base64_encode($docker_compose);
-        $this->commands[] = "echo '{$docker_compose_base64}' | base64 -d | tee $this->configuration_dir/docker-compose.yml > /dev/null";
+        $composeFile = "{$this->configuration_dir}/docker-compose.yml";
+        $this->commands[] = writeBase64FileCommand($composeFile, $docker_compose_base64);
         $readme = generate_readme_file($this->database->name, now());
-        $this->commands[] = "echo '{$readme}' > $this->configuration_dir/README.md";
+        $this->commands[] = writeBase64FileCommand("{$this->configuration_dir}/README.md", base64_encode($readme));
         $this->commands[] = "echo 'Pulling {$database->image} image.'";
-        $this->commands[] = "docker compose -f $this->configuration_dir/docker-compose.yml pull";
+        $this->commands[] = 'docker compose -f '.escapeshellarg($composeFile).' pull';
         $this->commands[] = dockerStopContainerCommand($container_name, 10).' 2>/dev/null || true';
         $this->commands[] = dockerRemoveContainerCommand($container_name).' 2>/dev/null || true';
-        $this->commands[] = "docker compose -f $this->configuration_dir/docker-compose.yml up -d";
+        $this->commands[] = 'docker compose -f '.escapeshellarg($composeFile).' up -d';
         if ($this->database->enable_ssl) {
             $this->commands[] = executeInDocker($this->database->uuid, 'chown mongodb:mongodb /etc/mongo/certs/server.pem');
         }
@@ -335,7 +336,7 @@ class StartMongodb
         $filename = 'mongod.conf';
         $content = $this->database->mongo_conf;
         $content_base64 = base64_encode($content);
-        $this->commands[] = "echo '{$content_base64}' | base64 -d | tee $this->configuration_dir/{$filename} > /dev/null";
+        $this->commands[] = writeBase64FileCommand("{$this->configuration_dir}/{$filename}", $content_base64);
     }
 
     private function add_default_database()
@@ -345,7 +346,7 @@ class StartMongodb
         $pwdJson = json_encode($this->database->mongo_initdb_root_password, JSON_UNESCAPED_SLASHES);
         $content = "db = db.getSiblingDB({$dbJson});db.createCollection('init_collection');db.createUser({user: {$userJson}, pwd: {$pwdJson}, roles: [{role:\"readWrite\",db:{$dbJson}}]});";
         $content_base64 = base64_encode($content);
-        $this->commands[] = "mkdir -p $this->configuration_dir/docker-entrypoint-initdb.d";
-        $this->commands[] = "echo '{$content_base64}' | base64 -d | tee $this->configuration_dir/docker-entrypoint-initdb.d/01-default-database.js > /dev/null";
+        $this->commands[] = 'mkdir -p '.escapeshellarg("{$this->configuration_dir}/docker-entrypoint-initdb.d");
+        $this->commands[] = writeBase64FileCommand("{$this->configuration_dir}/docker-entrypoint-initdb.d/01-default-database.js", $content_base64);
     }
 }

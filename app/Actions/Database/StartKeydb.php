@@ -30,12 +30,12 @@ class StartKeydb
         $this->commands = [
             "echo 'Starting database.'",
             "echo 'Creating directories.'",
-            "mkdir -p $this->configuration_dir",
+            'mkdir -p '.escapeshellarg($this->configuration_dir),
             "echo 'Directories created successfully.'",
         ];
 
         if (! $this->database->enable_ssl) {
-            $this->commands[] = "rm -rf $this->configuration_dir/ssl";
+            $this->commands[] = removeDirectoryCommand("{$this->configuration_dir}/ssl");
             $this->database->sslCertificates()->delete();
             $this->database->fileStorages()
                 ->where('resource_type', $this->database->getMorphClass())
@@ -52,7 +52,7 @@ class StartKeydb
                 });
         } else {
             $this->commands[] = "echo 'Setting up SSL for this database.'";
-            $this->commands[] = "mkdir -p $this->configuration_dir/ssl";
+            $this->commands[] = 'mkdir -p '.escapeshellarg("{$this->configuration_dir}/ssl");
 
             $server = $this->database->destination->server;
             $caCert = $server->sslCertificates()->where('is_ca_certificate', true)->first();
@@ -199,20 +199,21 @@ class StartKeydb
         $docker_compose = generateCustomDockerRunOptionsForDatabases($docker_run_options, $docker_compose, $container_name, $this->database->destination->network);
         $docker_compose = Yaml::dump($docker_compose, 10);
         $docker_compose_base64 = base64_encode($docker_compose);
-        $this->commands[] = "echo '{$docker_compose_base64}' | base64 -d | tee $this->configuration_dir/docker-compose.yml > /dev/null";
+        $composeFile = "{$this->configuration_dir}/docker-compose.yml";
+        $this->commands[] = writeBase64FileCommand($composeFile, $docker_compose_base64);
         $readme = generate_readme_file($this->database->name, now());
-        $this->commands[] = "echo '{$readme}' > $this->configuration_dir/README.md";
+        $this->commands[] = writeBase64FileCommand("{$this->configuration_dir}/README.md", base64_encode($readme));
         $this->commands[] = "echo 'Pulling {$database->image} image.'";
-        $this->commands[] = "docker compose -f $this->configuration_dir/docker-compose.yml pull";
+        $this->commands[] = 'docker compose -f '.escapeshellarg($composeFile).' pull';
         if ($this->database->enable_ssl) {
-            $this->commands[] = "chown -R 999:999 $this->configuration_dir/ssl/server.key $this->configuration_dir/ssl/server.crt";
+            $this->commands[] = 'chown -R 999:999 '.escapeshellarg("{$this->configuration_dir}/ssl/server.key").' '.escapeshellarg("{$this->configuration_dir}/ssl/server.crt");
         }
         if (! is_null($this->database->keydb_conf) && ! empty($this->database->keydb_conf)) {
-            $this->commands[] = "chown 999:999 $this->configuration_dir/keydb.conf";
+            $this->commands[] = 'chown 999:999 '.escapeshellarg("{$this->configuration_dir}/keydb.conf");
         }
         $this->commands[] = dockerStopContainerCommand($container_name, 10).' 2>/dev/null || true';
         $this->commands[] = dockerRemoveContainerCommand($container_name).' 2>/dev/null || true';
-        $this->commands[] = "docker compose -f $this->configuration_dir/docker-compose.yml up -d";
+        $this->commands[] = 'docker compose -f '.escapeshellarg($composeFile).' up -d';
         $this->commands[] = "echo 'Database started.'";
 
         return remote_process($this->commands, $database->destination->server, callEventOnFinish: 'DatabaseStatusChanged');
@@ -274,7 +275,7 @@ class StartKeydb
         $filename = 'keydb.conf';
         $content = $this->database->keydb_conf;
         $content_base64 = base64_encode($content);
-        $this->commands[] = "echo '{$content_base64}' | base64 -d | tee $this->configuration_dir/{$filename} > /dev/null";
+        $this->commands[] = writeBase64FileCommand("{$this->configuration_dir}/{$filename}", $content_base64);
     }
 
     private function buildStartCommand(): string

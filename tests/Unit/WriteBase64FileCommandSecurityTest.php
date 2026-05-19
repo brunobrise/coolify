@@ -15,3 +15,12 @@ it('prevents shell injection in base64 file write paths and payloads', function 
         ->toBe("printf %s 'S0VZPSc7IGlkOyAjCg==' | base64 -d | tee -- '/tmp/file; id #' > /dev/null")
         ->not->toContain('tee -- /tmp/file;');
 });
+
+it('quotes base64 file writes inside docker containers', function () {
+    $command = writeBase64FileInDockerCommand('builder; id #', '/app/Dockerfile; whoami #', base64_encode('FROM nginx'));
+
+    expect($command)
+        ->toStartWith("docker exec 'builder; id #' bash -c ")
+        ->not->toContain('docker exec builder;')
+        ->not->toContain('tee -- /app/Dockerfile;');
+});

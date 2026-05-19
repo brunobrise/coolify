@@ -70,7 +70,11 @@ class DeployController extends Controller
             return invalidTokenResponse();
         }
         $servers = Server::whereTeamId($teamId)->get();
-        $deployments_per_server = ApplicationDeploymentQueue::whereIn('status', ['in_progress', 'queued'])->whereIn('server_id', $servers->pluck('id'))->get()->sortBy('id');
+        $deployments_per_server = ApplicationDeploymentQueue::whereIn('status', ['in_progress', 'queued'])
+            ->whereIn('server_id', $servers->pluck('id'))
+            ->whereHas('application.environment.project', fn ($query) => $query->where('team_id', $teamId))
+            ->get()
+            ->sortBy('id');
         $deployments_per_server = $deployments_per_server->map(function ($deployment) {
             return $this->removeSensitiveData($deployment);
         });

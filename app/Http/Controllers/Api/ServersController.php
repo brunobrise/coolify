@@ -24,6 +24,9 @@ class ServersController extends Controller
     {
         if (request()->attributes->get('can_read_sensitive', false) === false) {
             $settings = $settings->makeHidden([
+                'logdrain_axiom_api_key',
+                'logdrain_custom_config',
+                'logdrain_newrelic_license_key',
                 'sentinel_token',
             ]);
         }
@@ -37,7 +40,12 @@ class ServersController extends Controller
             'id',
         ]);
         if (request()->attributes->get('can_read_sensitive', false) === false) {
-            // Do nothing
+            $server->makeHidden([
+                'cloud_provider_token_id',
+                'private_key_id',
+                'server_metadata',
+                'validation_logs',
+            ]);
         }
 
         return serializeApiResponse($server);

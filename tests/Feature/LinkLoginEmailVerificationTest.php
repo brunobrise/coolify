@@ -173,6 +173,40 @@ describe('invitation link login', function () {
             ->and(TeamInvitation::whereKey($secondInvitation->id)->exists())->toBeFalse()
             ->and(TeamInvitation::whereKey($firstInvitation->id)->exists())->toBeTrue();
     });
+
+    test('rejects invite login tokens without invitation uuid when email has multiple invitations', function () {
+        $firstTeam = Team::factory()->create();
+        $secondTeam = Team::factory()->create();
+        $password = 'test-password-123';
+        $user = User::factory()->create([
+            'email' => 'legacy-multi-invitee@example.com',
+            'password' => Hash::make($password),
+        ]);
+        $firstInvitation = TeamInvitation::create([
+            'team_id' => $firstTeam->id,
+            'uuid' => 'legacy-first-invite',
+            'email' => $user->email,
+            'role' => 'admin',
+            'link' => 'https://example.com/invite/legacy-first-invite',
+            'via' => 'link',
+        ]);
+        $secondInvitation = TeamInvitation::create([
+            'team_id' => $secondTeam->id,
+            'uuid' => 'legacy-second-invite',
+            'email' => $user->email,
+            'role' => 'member',
+            'link' => 'https://example.com/invite/legacy-second-invite',
+            'via' => 'link',
+        ]);
+
+        $token = inviteLoginToken($user->email, $password);
+
+        $this->get(route('auth.link', ['token' => $token]));
+
+        expect(auth()->check())->toBeFalse()
+            ->and(TeamInvitation::whereKey($firstInvitation->id)->exists())->toBeTrue()
+            ->and(TeamInvitation::whereKey($secondInvitation->id)->exists())->toBeTrue();
+    });
 });
 
 function inviteLoginToken(string $email, string $password, ?int $expiresAt = null, ?string $invitationUuid = null): string

@@ -137,13 +137,16 @@ class Controller extends BaseController
 
     private function resolveInviteLoginInvitation(string $email, string $invitationUuid): ?TeamInvitation
     {
-        $query = TeamInvitation::whereEmail($email);
-
         if (filled($invitationUuid)) {
-            $query->whereUuid($invitationUuid);
+            return TeamInvitation::whereEmail($email)->whereUuid($invitationUuid)->first();
         }
 
-        return $query->first();
+        $validInvitations = TeamInvitation::whereEmail($email)
+            ->get()
+            ->filter(fn (TeamInvitation $invitation) => $invitation->isValid())
+            ->values();
+
+        return $validInvitations->count() === 1 ? $validInvitations->first() : null;
     }
 
     public function showInvitation()

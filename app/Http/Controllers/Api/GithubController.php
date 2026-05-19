@@ -266,6 +266,12 @@ class GithubController extends Controller
             ];
 
             if (! isCloud()) {
+                if ($request->boolean('is_system_wide') && ! $request->user()?->canAccessSystemResources()) {
+                    return response()->json([
+                        'message' => 'Only root team admins or owners can create system-wide GitHub Apps.',
+                    ], 403);
+                }
+
                 $payload['is_system_wide'] = $request->input('is_system_wide', false);
             }
 
@@ -626,6 +632,12 @@ class GithubController extends Controller
                 $rules['private_key_uuid'] = 'string|uuid';
             }
             if (! isCloud() && isset($payload['is_system_wide'])) {
+                if ($request->boolean('is_system_wide') && ! $request->user()?->canAccessSystemResources()) {
+                    return response()->json([
+                        'message' => 'Only root team admins or owners can create system-wide GitHub Apps.',
+                    ], 403);
+                }
+
                 $rules['is_system_wide'] = 'boolean';
             }
 

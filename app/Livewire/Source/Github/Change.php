@@ -96,7 +96,7 @@ class Change extends Component
 
     public function boot()
     {
-        if ($this->github_app) {
+        if ($this->github_app && auth()->user()?->can('update', $this->github_app)) {
             $this->github_app->makeVisible(['client_secret', 'webhook_secret']);
         }
     }
@@ -150,7 +150,7 @@ class Change extends Component
     public function checkPermissions()
     {
         try {
-            $this->authorize('view', $this->github_app);
+            $this->authorize('update', $this->github_app);
 
             // Validate required fields before attempting to fetch permissions
             $missingFields = [];
@@ -199,6 +199,7 @@ class Change extends Component
         try {
             $github_app_uuid = request()->github_app_uuid;
             $this->github_app = GithubApp::ownedByCurrentTeam()->whereUuid($github_app_uuid)->firstOrFail();
+            $this->authorize('update', $this->github_app);
             $this->github_app->makeVisible(['client_secret', 'webhook_secret']);
             $this->privateKeys = PrivateKey::ownedByCurrentTeamCached();
 

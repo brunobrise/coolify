@@ -4,9 +4,13 @@ namespace App\Policies;
 
 use App\Models\EnvironmentVariable;
 use App\Models\User;
+use App\Policies\Concerns\AuthorizesTeamAccess;
+use Illuminate\Support\Facades\Gate;
 
 class EnvironmentVariablePolicy
 {
+    use AuthorizesTeamAccess;
+
     /**
      * Determine whether the user can view any models.
      */
@@ -20,7 +24,12 @@ class EnvironmentVariablePolicy
      */
     public function view(User $user, EnvironmentVariable $environmentVariable): bool
     {
-        return true;
+        $resource = $environmentVariable->resourceable;
+        if (! $resource) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows('view', $resource);
     }
 
     /**
@@ -28,7 +37,7 @@ class EnvironmentVariablePolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $this->canManageTeam($user, $this->currentTeamId($user));
     }
 
     /**
@@ -36,7 +45,7 @@ class EnvironmentVariablePolicy
      */
     public function update(User $user, EnvironmentVariable $environmentVariable): bool
     {
-        return true;
+        return $this->canManageEnvironment($user, $environmentVariable);
     }
 
     /**
@@ -44,7 +53,7 @@ class EnvironmentVariablePolicy
      */
     public function delete(User $user, EnvironmentVariable $environmentVariable): bool
     {
-        return true;
+        return $this->canManageEnvironment($user, $environmentVariable);
     }
 
     /**
@@ -52,7 +61,7 @@ class EnvironmentVariablePolicy
      */
     public function restore(User $user, EnvironmentVariable $environmentVariable): bool
     {
-        return true;
+        return $this->canManageEnvironment($user, $environmentVariable);
     }
 
     /**
@@ -60,7 +69,7 @@ class EnvironmentVariablePolicy
      */
     public function forceDelete(User $user, EnvironmentVariable $environmentVariable): bool
     {
-        return true;
+        return $this->canManageEnvironment($user, $environmentVariable);
     }
 
     /**
@@ -68,6 +77,16 @@ class EnvironmentVariablePolicy
      */
     public function manageEnvironment(User $user, EnvironmentVariable $environmentVariable): bool
     {
-        return true;
+        return $this->canManageEnvironment($user, $environmentVariable);
+    }
+
+    private function canManageEnvironment(User $user, EnvironmentVariable $environmentVariable): bool
+    {
+        $resource = $environmentVariable->resourceable;
+        if (! $resource) {
+            return false;
+        }
+
+        return Gate::forUser($user)->allows('manageEnvironment', $resource);
     }
 }

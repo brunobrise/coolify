@@ -1,27 +1,51 @@
 <?php
 
 use App\Models\GithubApp;
+use App\Models\InstanceSettings;
 use App\Models\PrivateKey;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Once;
 
 uses(RefreshDatabase::class);
 
+function githubAppsListPrivateKeyPem(): string
+{
+    $key = openssl_pkey_new([
+        'private_key_bits' => 2048,
+        'private_key_type' => OPENSSL_KEYTYPE_RSA,
+    ]);
+    openssl_pkey_export($key, $pem);
+
+    return $pem;
+}
+
 beforeEach(function () {
+    config(['cache.default' => 'array']);
+    config(['app.maintenance.store' => 'array']);
+    Cache::flush();
+    $this->withoutMiddleware(PreventRequestsDuringMaintenance::class);
+    InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0, 'is_api_enabled' => true]));
+    Once::flush();
+
     // Create a team with owner
     $this->team = Team::factory()->create();
     $this->user = User::factory()->create();
     $this->team->members()->attach($this->user->id, ['role' => 'owner']);
+    $this->user->load('teams');
+    session(['currentTeam' => $this->team]);
 
     // Create an API token for the user
-    $this->token = $this->user->createToken('test-token', ['*'], $this->team->id);
+    $this->token = $this->user->createToken('test-token', ['*']);
     $this->bearerToken = $this->token->plainTextToken;
 
     // Create a private key for the team
     $this->privateKey = PrivateKey::create([
         'name' => 'Test Key',
-        'private_key' => 'test-private-key-content',
+        'private_key' => githubAppsListPrivateKeyPem(),
         'team_id' => $this->team->id,
     ]);
 });
@@ -118,7 +142,9 @@ describe('GET /api/v1/github-apps', function () {
         $otherTeam = Team::factory()->create();
         $otherUser = User::factory()->create();
         $otherTeam->members()->attach($otherUser->id, ['role' => 'owner']);
-        $otherToken = $otherUser->createToken('other-token', ['*'], $otherTeam->id);
+        $otherUser->load('teams');
+        session(['currentTeam' => $otherTeam]);
+        $otherToken = $otherUser->createToken('other-token', ['*']);
 
         // System-wide apps should be visible to other teams
         $response = $this->withHeaders([
@@ -152,7 +178,7 @@ describe('GET /api/v1/github-apps', function () {
         $otherTeam = Team::factory()->create();
         $otherPrivateKey = PrivateKey::create([
             'name' => 'Other Key',
-            'private_key' => 'other-key',
+            'private_key' => githubAppsListPrivateKeyPem(),
             'team_id' => $otherTeam->id,
         ]);
         GithubApp::create([
@@ -218,5 +244,25 @@ describe('GET /api/v1/github-apps', function () {
                 'type',
             ],
         ]);
+    });
+
+    test('blocks non-root admins from creating system-wide github apps through the API', function () {
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer '.$this->bearerToken,
+        ])->postJson('/api/v1/github-apps', [
+            'name' => 'Blocked System App',
+            'api_url' => 'https://api.github.com',
+            'html_url' => 'https://github.com',
+            'app_id' => 12345,
+            'installation_id' => 67890,
+            'client_id' => 'client-id',
+            'client_secret' => 'secret',
+            'webhook_secret' => 'webhook',
+            'private_key_uuid' => $this->privateKey->uuid,
+            'is_system_wide' => true,
+        ]);
+
+        $response->assertForbidden();
+        expect(GithubApp::where('name', 'Blocked System App')->exists())->toBeFalse();
     });
 });

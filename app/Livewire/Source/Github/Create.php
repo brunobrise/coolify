@@ -4,6 +4,7 @@ namespace App\Livewire\Source\Github;
 
 use App\Models\GithubApp;
 use App\Rules\SafeExternalUrl;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
@@ -44,6 +45,10 @@ class Create extends Component
                 'custom_port' => 'required|int',
                 'is_system_wide' => 'required|bool',
             ]);
+            if ($this->is_system_wide && ! auth()->user()?->canAccessSystemResources()) {
+                throw new AuthorizationException('Only root team admins or owners can create system-wide GitHub Apps.');
+            }
+
             $payload = [
                 'name' => $this->name,
                 'organization' => $this->organization,

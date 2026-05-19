@@ -155,11 +155,16 @@ test('service file storage shell path helper rejects command injection', functio
 });
 
 test('service file storage writes use quoted base64 helper', function () {
-    $source = file_get_contents(__DIR__.'/../../bootstrap/helpers/services.php');
+    $sources = [
+        file_get_contents(__DIR__.'/../../bootstrap/helpers/services.php'),
+        file_get_contents(__DIR__.'/../../app/Models/LocalFileVolume.php'),
+    ];
 
-    expect($source)
-        ->not->toContain("echo '$content' | base64 -d | tee")
-        ->toContain('writeBase64FileCommand($fileLocation, $content)');
+    foreach ($sources as $source) {
+        expect($source)
+            ->not->toContain("echo '$content' | base64 -d | tee")
+            ->toContain('writeBase64FileCommand');
+    }
 });
 
 test('file storage quotes owner and mode permission commands', function () {

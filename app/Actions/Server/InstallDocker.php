@@ -26,16 +26,19 @@ class InstallDocker
                 validityDays: 10 * 365
             );
             $caCertPath = config('constants.coolify.base_config_path').'/ssl/';
+            $caCertFile = "{$caCertPath}coolify-ca.crt";
+            $escapedCaCertPath = escapeshellarg($caCertPath);
+            $escapedCaCertFile = escapeshellarg($caCertFile);
 
             $base64Cert = base64_encode($serverCert->ssl_certificate);
 
             $commands = collect([
-                "mkdir -p $caCertPath",
-                "chown -R 9999:root $caCertPath",
-                "chmod -R 700 $caCertPath",
-                "rm -rf $caCertPath/coolify-ca.crt",
-                "echo '{$base64Cert}' | base64 -d | tee $caCertPath/coolify-ca.crt > /dev/null",
-                "chmod 644 $caCertPath/coolify-ca.crt",
+                "mkdir -p {$escapedCaCertPath}",
+                "chown -R 9999:root {$escapedCaCertPath}",
+                "chmod -R 700 {$escapedCaCertPath}",
+                "rm -f {$escapedCaCertFile}",
+                writeBase64FileCommand($caCertFile, $base64Cert),
+                "chmod 644 {$escapedCaCertFile}",
             ]);
             remote_process($commands, $server);
         }
@@ -86,11 +89,11 @@ class InstallDocker
             $command = $command->merge([
                 "echo 'Configuring Docker Engine (merging existing configuration with the required)...'",
                 'test -s /etc/docker/daemon.json && cp /etc/docker/daemon.json "/etc/docker/daemon.json.original-$(date +"%Y%m%d-%H%M%S")"',
-                "test ! -s /etc/docker/daemon.json && echo '{$config}' | base64 -d | tee /etc/docker/daemon.json > /dev/null",
-                "echo '{$config}' | base64 -d | tee /etc/docker/daemon.json.coolify > /dev/null",
-                'jq . /etc/docker/daemon.json.coolify | tee /etc/docker/daemon.json.coolify.pretty > /dev/null',
+                'test ! -s /etc/docker/daemon.json && '.writeBase64FileCommand('/etc/docker/daemon.json', $config),
+                writeBase64FileCommand('/etc/docker/daemon.json.coolify', $config),
+                'jq . /etc/docker/daemon.json.coolify | tee -- /etc/docker/daemon.json.coolify.pretty > /dev/null',
                 'mv /etc/docker/daemon.json.coolify.pretty /etc/docker/daemon.json.coolify',
-                "jq -s '.[0] * .[1]' /etc/docker/daemon.json.coolify /etc/docker/daemon.json | tee /etc/docker/daemon.json.appended > /dev/null",
+                "jq -s '.[0] * .[1]' /etc/docker/daemon.json.coolify /etc/docker/daemon.json | tee -- /etc/docker/daemon.json.appended > /dev/null",
                 'mv /etc/docker/daemon.json.appended /etc/docker/daemon.json',
                 "echo 'Restarting Docker Engine...'",
                 'systemctl enable docker >/dev/null 2>&1 || true',

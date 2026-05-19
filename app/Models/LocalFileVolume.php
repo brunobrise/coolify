@@ -196,6 +196,7 @@ class LocalFileVolume extends BaseModel
             $path = $path->after('.');
             $path = $workdir.$path;
         }
+        $path = (string) $path;
 
         // Validate and escape resolved path (may differ from fs_path if relative)
         validateShellSafePath($path, 'storage path');
@@ -228,7 +229,7 @@ class LocalFileVolume extends BaseModel
         if ($isDir === 'NOK' && ! $this->is_directory) {
             if ($content) {
                 $content = base64_encode($content);
-                $commands->push("echo '$content' | base64 -d | tee {$escapedPath} > /dev/null");
+                $commands->push(writeBase64FileCommand($path, $content));
             } else {
                 $commands->push("touch {$escapedPath}");
             }

@@ -4,6 +4,8 @@ namespace App\Livewire\Project\Application;
 
 use App\Models\Application;
 use App\Models\PrivateKey;
+use App\Rules\ValidGitBranch;
+use App\Rules\ValidGitRepositoryUrl;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
@@ -24,10 +26,10 @@ class Source extends Component
     #[Validate(['nullable', 'integer'])]
     public ?int $privateKeyId = null;
 
-    #[Validate(['required', 'string'])]
+    #[Validate(['required', 'string', new ValidGitRepositoryUrl])]
     public string $gitRepository;
 
-    #[Validate(['required', 'string'])]
+    #[Validate(['required', 'string', new ValidGitBranch])]
     public string $gitBranch;
 
     #[Validate(['nullable', 'string', 'regex:/^[a-zA-Z0-9][a-zA-Z0-9._\-\/]*$/'])]

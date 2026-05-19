@@ -2202,7 +2202,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
 
         // Only include SOURCE_COMMIT in build context if enabled in settings
         if ($this->application->settings->include_source_commit_in_build) {
-            $this->coolify_variables .= "SOURCE_COMMIT={$this->commit} ";
+            $this->coolify_variables .= $this->shellEnvironmentAssignment('SOURCE_COMMIT', $this->commit);
         }
         if ($this->pull_request_id === 0) {
             $fqdn = $this->application->fqdn;
@@ -2214,17 +2214,22 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
             $fqdn = $url->getHost();
             $url = $url->withHost($fqdn)->withPort(null)->__toString();
             if ((int) $this->application->compose_parsing_version >= 3) {
-                $this->coolify_variables .= "COOLIFY_URL={$url} ";
-                $this->coolify_variables .= "COOLIFY_FQDN={$fqdn} ";
+                $this->coolify_variables .= $this->shellEnvironmentAssignment('COOLIFY_URL', $url);
+                $this->coolify_variables .= $this->shellEnvironmentAssignment('COOLIFY_FQDN', $fqdn);
             } else {
-                $this->coolify_variables .= "COOLIFY_URL={$fqdn} ";
-                $this->coolify_variables .= "COOLIFY_FQDN={$url} ";
+                $this->coolify_variables .= $this->shellEnvironmentAssignment('COOLIFY_URL', $fqdn);
+                $this->coolify_variables .= $this->shellEnvironmentAssignment('COOLIFY_FQDN', $url);
             }
         }
         if (isset($this->application->git_branch)) {
-            $this->coolify_variables .= "COOLIFY_BRANCH={$this->application->git_branch} ";
+            $this->coolify_variables .= $this->shellEnvironmentAssignment('COOLIFY_BRANCH', $this->application->git_branch);
         }
-        $this->coolify_variables .= "COOLIFY_RESOURCE_UUID={$this->application->uuid} ";
+        $this->coolify_variables .= $this->shellEnvironmentAssignment('COOLIFY_RESOURCE_UUID', $this->application->uuid);
+    }
+
+    private function shellEnvironmentAssignment(string $name, ?string $value): string
+    {
+        return "{$name}=".escapeshellarg((string) $value).' ';
     }
 
     private function check_git_if_build_needed()
@@ -2272,7 +2277,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
                     executeInDocker($this->deployment_uuid, 'chmod 600 /root/.ssh/id_rsa'),
                 ],
                 [
-                    executeInDocker($this->deployment_uuid, "GIT_SSH_COMMAND=\"ssh -o ConnectTimeout=30 -p {$this->customPort} -o Port={$this->customPort} -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i /root/.ssh/id_rsa\" git ls-remote {$this->fullRepoUrl} {$lsRemoteRef}"),
+                    executeInDocker($this->deployment_uuid, $this->gitLsRemoteCommand($lsRemoteRef, withPrivateKey: true)),
                     'hidden' => true,
                     'save' => 'git_commit_sha',
                 ]
@@ -2280,7 +2285,7 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
         } else {
             $this->execute_remote_command(
                 [
-                    executeInDocker($this->deployment_uuid, "GIT_SSH_COMMAND=\"ssh -o ConnectTimeout=30 -p {$this->customPort} -o Port={$this->customPort} -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null\" git ls-remote {$this->fullRepoUrl} {$lsRemoteRef}"),
+                    executeInDocker($this->deployment_uuid, $this->gitLsRemoteCommand($lsRemoteRef)),
                     'hidden' => true,
                     'save' => 'git_commit_sha',
                 ],
@@ -2316,6 +2321,13 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
             $this->application_deployment_queue->addLogEntry('Restarting helper container with actual SOURCE_COMMIT value.');
             $this->restart_builder_container_with_actual_commit();
         }
+    }
+
+    private function gitLsRemoteCommand(string $ref, bool $withPrivateKey = false): string
+    {
+        $identityFile = $withPrivateKey ? ' -i /root/.ssh/id_rsa' : '';
+
+        return "GIT_SSH_COMMAND=\"ssh -o ConnectTimeout=30 -p {$this->customPort} -o Port={$this->customPort} -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null{$identityFile}\" git ls-remote ".escapeshellarg((string) $this->fullRepoUrl).' '.escapeshellarg($ref);
     }
 
     private function clone_repository()

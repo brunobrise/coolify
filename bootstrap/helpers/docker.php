@@ -187,6 +187,13 @@ function dockerNetworkRemoveCommand(string $network, bool $force = false): strin
     return "docker network rm {$forceFlag}".escapeshellarg($network);
 }
 
+function dockerComposeDownVolumesCommand(string $project_directory): string
+{
+    validateShellSafePath($project_directory, 'Docker Compose project directory');
+
+    return 'cd '.escapeshellarg($project_directory).' && docker compose down -v';
+}
+
 function getContainerStatus(Server $server, string $container_id, bool $all_data = false, bool $throwError = false)
 {
     if ($server->isSwarm()) {

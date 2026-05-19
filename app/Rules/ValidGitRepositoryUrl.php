@@ -2,6 +2,7 @@
 
 namespace App\Rules;
 
+use App\Support\SafeUrlHost;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Log;
@@ -38,7 +39,7 @@ class ValidGitRepositoryUrl implements ValidationRule
         foreach ($dangerousChars as $char) {
             if (str_contains($value, $char)) {
                 Log::warning('Git repository URL validation failed - dangerous character', [
-                    'url' => $value,
+                    'url' => $this->redactedUrlForLog($value),
                     'character' => $char,
                     'ip' => request()->ip(),
                     'user_id' => auth()->id(),
@@ -65,7 +66,7 @@ class ValidGitRepositoryUrl implements ValidationRule
         foreach ($dangerousPatterns as $pattern) {
             if (preg_match($pattern, $value)) {
                 Log::warning('Git repository URL validation failed - dangerous pattern', [
-                    'url' => $value,
+                    'url' => $this->redactedUrlForLog($value),
                     'pattern' => $pattern,
                     'ip' => request()->ip(),
                     'user_id' => auth()->id(),
@@ -103,7 +104,7 @@ class ValidGitRepositoryUrl implements ValidationRule
             // Check for IP addresses if not allowed
             if (! $this->allowIP && filter_var($parsed['host'] ?? '', FILTER_VALIDATE_IP)) {
                 Log::warning('Git repository URL contains IP address', [
-                    'url' => $value,
+                    'url' => $this->redactedUrlForLog($value),
                     'ip' => request()->ip(),
                     'user_id' => auth()->id(),
                 ]);
@@ -117,7 +118,7 @@ class ValidGitRepositoryUrl implements ValidationRule
             $internalHosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1'];
             if (in_array($host, $internalHosts) || str_ends_with($host, '.local')) {
                 Log::warning('Git repository URL points to internal host', [
-                    'url' => $value,
+                    'url' => $this->redactedUrlForLog($value),
                     'host' => $host,
                     'ip' => request()->ip(),
                     'user_id' => auth()->id(),
@@ -153,5 +154,16 @@ class ValidGitRepositoryUrl implements ValidationRule
 
             return;
         }
+    }
+
+    private function redactedUrlForLog(mixed $value): string
+    {
+        $value = (string) $value;
+
+        if (preg_match('/^git@([^:]+):/', $value, $matches) === 1) {
+            return "git@{$matches[1]}:[redacted]";
+        }
+
+        return SafeUrlHost::redactedUrlForLog($value);
     }
 }

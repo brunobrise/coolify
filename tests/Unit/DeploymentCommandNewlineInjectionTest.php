@@ -10,7 +10,7 @@ it('strips newlines from pre_deployment_command before building sh -c wrapper', 
     expect($exec)->not->toContain("\n")
         ->and($exec)->not->toContain("\r")
         ->and($exec)->toContain('echo hello echo injected')
-        ->and($exec)->toMatch("/^docker exec .+ sh -c '.+'$/");
+        ->and($exec)->toMatch("/^docker exec '.+' sh -c '.+'$/");
 });
 
 it('strips carriage returns from deployment command', function () {
@@ -58,6 +58,14 @@ it('properly escapes single quotes after newline normalization', function () {
         ->and($exec)->toContain("echo '\\''world'\\''");
 });
 
+it('quotes deployment command container names', function () {
+    $exec = buildDeploymentExecCommand('php artisan migrate', "app'; id; #");
+
+    expect($exec)
+        ->toStartWith("docker exec 'app'\\''; id; #' sh -c ")
+        ->not->toContain("docker exec app'; id;");
+});
+
 /**
  * Replicates the exact command-building logic from ApplicationDeploymentJob's
  * run_pre_deployment_command() and run_post_deployment_command() methods.
@@ -70,5 +78,5 @@ function buildDeploymentExecCommand(string $command, string $containerName = 'my
     $normalized = str_replace(["\r\n", "\r", "\n"], ' ', $command);
     $cmd = "sh -c '".str_replace("'", "'\''", $normalized)."'";
 
-    return "docker exec {$containerName} {$cmd}";
+    return 'docker exec '.escapeshellarg($containerName).' '.$cmd;
 }

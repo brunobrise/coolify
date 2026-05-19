@@ -20,6 +20,15 @@ function shouldChangeOwnership(string $path): bool
 
     return $isCoolifyPath;
 }
+
+function sudoOwnershipCommand(Server $server, string $path): string
+{
+    $owner = escapeshellarg("{$server->user}:{$server->user}");
+    $escapedPath = escapeshellarg($path);
+
+    return "sudo chown -R {$owner} {$escapedPath} && sudo chmod -R o-rwx {$escapedPath}";
+}
+
 function parseCommandsByLineForSudo(Collection $commands, Server $server): array
 {
     $commands = $commands->map(function ($line) {
@@ -79,7 +88,7 @@ function parseCommandsByLineForSudo(Collection $commands, Server $server): array
         if (Str::startsWith($line, 'sudo mkdir -p')) {
             $path = trim(Str::after($line, 'sudo mkdir -p'));
             if (shouldChangeOwnership($path)) {
-                return "$line && sudo chown -R $server->user:$server->user $path && sudo chmod -R o-rwx $path";
+                return $line.' && '.sudoOwnershipCommand($server, $path);
             }
 
             return $line;
@@ -135,7 +144,7 @@ function parseLineForSudo(string $command, Server $server): string
     if (Str::startsWith($command, 'sudo mkdir -p')) {
         $path = trim(Str::after($command, 'sudo mkdir -p'));
         if (shouldChangeOwnership($path)) {
-            $command = "$command && sudo chown -R $server->user:$server->user $path && sudo chmod -R o-rwx $path";
+            $command .= ' && '.sudoOwnershipCommand($server, $path);
         }
     }
     if (str($command)->contains('$(') || str($command)->contains('`')) {

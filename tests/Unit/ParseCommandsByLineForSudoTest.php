@@ -185,7 +185,7 @@ test('adds ownership changes for Coolify data paths', function () {
 
     // Note: The && operator adds another sudo, creating double sudo for chown/chmod
     // This is existing behavior that may need refactoring but isn't part of this bug fix
-    expect($result[0])->toBe('sudo mkdir -p /data/coolify/logs && sudo sudo chown -R ubuntu:ubuntu /data/coolify/logs && sudo sudo chmod -R o-rwx /data/coolify/logs');
+    expect($result[0])->toBe("sudo mkdir -p /data/coolify/logs && sudo sudo chown -R 'ubuntu:ubuntu' '/data/coolify/logs' && sudo sudo chmod -R o-rwx '/data/coolify/logs'");
 });
 
 test('adds ownership changes for Coolify tmp paths', function () {
@@ -197,7 +197,15 @@ test('adds ownership changes for Coolify tmp paths', function () {
 
     // Note: The && operator adds another sudo, creating double sudo for chown/chmod
     // This is existing behavior that may need refactoring but isn't part of this bug fix
-    expect($result[0])->toBe('sudo mkdir -p /tmp/coolify/cache && sudo sudo chown -R ubuntu:ubuntu /tmp/coolify/cache && sudo sudo chmod -R o-rwx /tmp/coolify/cache');
+    expect($result[0])->toBe("sudo mkdir -p /tmp/coolify/cache && sudo sudo chown -R 'ubuntu:ubuntu' '/tmp/coolify/cache' && sudo sudo chmod -R o-rwx '/tmp/coolify/cache'");
+});
+
+test('quotes ownership command path and owner', function () {
+    $command = sudoOwnershipCommand($this->server, '/data/coolify/logs; id #');
+
+    expect($command)
+        ->toBe("sudo chown -R 'ubuntu:ubuntu' '/data/coolify/logs; id #' && sudo chmod -R o-rwx '/data/coolify/logs; id #'")
+        ->not->toContain('chown -R ubuntu:ubuntu /data/coolify/logs;');
 });
 
 test('does not add ownership changes for system paths', function () {

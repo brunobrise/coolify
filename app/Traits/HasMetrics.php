@@ -42,7 +42,7 @@ trait HasMetrics
         }
 
         $response = instant_remote_process(
-            ["docker exec coolify-sentinel sh -c 'curl -H \"Authorization: Bearer {$token}\" {$endpoint}'"],
+            [$this->sentinelMetricsCurlCommand($token, $endpoint)],
             $server,
             false
         );
@@ -85,5 +85,13 @@ trait HasMetrics
         }
 
         return "{$base}/container/{$this->uuid}/{$type}/history?from={$from}";
+    }
+
+    private function sentinelMetricsCurlCommand(string $token, string $endpoint): string
+    {
+        return executeInDocker(
+            'coolify-sentinel',
+            'curl -H '.escapeshellarg("Authorization: Bearer {$token}").' '.escapeshellarg($endpoint)
+        );
     }
 }

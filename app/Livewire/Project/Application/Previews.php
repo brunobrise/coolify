@@ -342,8 +342,8 @@ class Previews extends Component
 
         foreach ($containersToStop as $containerName) {
             instant_remote_process(command: [
-                "docker stop --time=$timeout $containerName",
-                "docker rm -f $containerName",
+                dockerStopContainerCommand($containerName, $timeout),
+                dockerRemoveContainerCommand($containerName),
             ], server: $server, throwError: false);
         }
     }
@@ -356,7 +356,7 @@ class Previews extends Component
             $server = $this->application->destination->server;
 
             if ($this->application->destination->server->isSwarm()) {
-                instant_remote_process(["docker stack rm {$this->application->uuid}-{$pull_request_id}"], $server);
+                instant_remote_process([dockerStackRemoveCommand("{$this->application->uuid}-{$pull_request_id}")], $server);
             } else {
                 $containers = getCurrentApplicationContainerStatus($server, $this->application->id, $pull_request_id)->toArray();
                 $this->stopContainers($containers, $server);

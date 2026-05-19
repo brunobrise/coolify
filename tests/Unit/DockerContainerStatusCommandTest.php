@@ -38,3 +38,29 @@ it('prevents command injection in docker remove container names', function () {
         ->toBe("docker rm -f 'coolify-deployment; id #'")
         ->not->toContain('docker rm -f coolify-deployment;');
 });
+
+it('quotes docker stop container names', function () {
+    expect(dockerStopContainerCommand('coolify-deployment', 30))
+        ->toBe("docker stop --time=30 'coolify-deployment'");
+});
+
+it('prevents command injection in docker stop container names', function () {
+    $command = dockerStopContainerCommand('coolify-deployment; id #', 30);
+
+    expect($command)
+        ->toBe("docker stop --time=30 'coolify-deployment; id #'")
+        ->not->toContain('docker stop --time=30 coolify-deployment;');
+});
+
+it('quotes docker stack names', function () {
+    expect(dockerStackRemoveCommand('app-pr-1'))
+        ->toBe("docker stack rm 'app-pr-1'");
+});
+
+it('prevents command injection in docker stack names', function () {
+    $command = dockerStackRemoveCommand('app-pr-1; id #');
+
+    expect($command)
+        ->toBe("docker stack rm 'app-pr-1; id #'")
+        ->not->toContain('docker stack rm app-pr-1;');
+});

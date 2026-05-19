@@ -165,6 +165,16 @@ function dockerRemoveContainerCommand(string $container_id): string
     return 'docker rm -f '.escapeshellarg($container_id);
 }
 
+function dockerStopContainerCommand(string $container_id, int $timeout): string
+{
+    return 'docker stop --time='.(int) $timeout.' '.escapeshellarg($container_id);
+}
+
+function dockerStackRemoveCommand(string $stack_name): string
+{
+    return 'docker stack rm '.escapeshellarg($stack_name);
+}
+
 function getContainerStatus(Server $server, string $container_id, bool $all_data = false, bool $throwError = false)
 {
     if ($server->isSwarm()) {

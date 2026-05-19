@@ -302,9 +302,9 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
         try {
             // Make sure the private key is stored in the filesystem
             $this->server->privateKey->storeInFileSystem();
-            // Generate custom host<->ip mapping
-            $safeNetwork = escapeshellarg($this->destination->network);
-            $allContainers = instant_remote_process(["docker network inspect {$safeNetwork} -f '{{json .Containers}}' "], $this->server);
+            $allContainers = instant_remote_process([
+                'docker network inspect -f '.escapeshellarg('{{json .Containers}}').' '.escapeshellarg($this->destination->network),
+            ], $this->server);
 
             if (! is_null($allContainers)) {
                 $allContainers = format_docker_command_output_to_json($allContainers);
@@ -788,11 +788,11 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
             // TODO
         } else {
             $this->execute_remote_command([
-                "docker network inspect '{$networkId}' >/dev/null 2>&1 || docker network create --attachable '{$networkId}' >/dev/null || true",
+                dockerNetworkInspectCommand($networkId).' >/dev/null 2>&1 || '.dockerNetworkCreateCommand($networkId, attachable: true).' >/dev/null || true',
                 'hidden' => true,
                 'ignore_errors' => true,
             ], [
-                "docker network connect {$networkId} coolify-proxy >/dev/null 2>&1 || true",
+                dockerNetworkConnectCommand($networkId, 'coolify-proxy').' >/dev/null 2>&1 || true',
                 'hidden' => true,
                 'ignore_errors' => true,
             ]);

@@ -3802,12 +3802,12 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
 
             if ($skipRemove) {
                 $this->execute_remote_command(
-                    ["docker stop --time=$timeout $containerName", 'hidden' => true, 'ignore_errors' => true]
+                    [dockerStopContainerCommand($containerName, $timeout), 'hidden' => true, 'ignore_errors' => true]
                 );
             } else {
                 $this->execute_remote_command(
-                    ["docker stop --time=$timeout $containerName", 'hidden' => true, 'ignore_errors' => true],
-                    ["docker rm -f $containerName", 'hidden' => true, 'ignore_errors' => true]
+                    [dockerStopContainerCommand($containerName, $timeout), 'hidden' => true, 'ignore_errors' => true],
+                    [dockerRemoveContainerCommand($containerName), 'hidden' => true, 'ignore_errors' => true]
                 );
             }
         } catch (Exception $error) {
@@ -4842,7 +4842,7 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
                 } else {
                     $this->application_deployment_queue->addLogEntry('Deployment failed. Removing the new version of your application.', 'stderr');
                     $this->execute_remote_command(
-                        ["docker rm -f $this->container_name >/dev/null 2>&1", 'hidden' => true, 'ignore_errors' => true]
+                        [dockerRemoveContainerCommand($this->container_name).' >/dev/null 2>&1', 'hidden' => true, 'ignore_errors' => true]
                     );
                 }
             }

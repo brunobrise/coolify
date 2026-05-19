@@ -188,10 +188,9 @@ class DeleteResourceJob implements ShouldBeEncrypted, ShouldQueue
             $containerNames[] = str_replace('/', '', $container['Names']);
         }
 
-        $containerList = implode(' ', array_map('escapeshellarg', $containerNames));
         $commands = [
-            "docker stop -t $timeout $containerList",
-            "docker rm -f $containerList",
+            dockerStopContainersCommand($containerNames, $timeout),
+            dockerRemoveContainersCommand($containerNames),
         ];
         instant_remote_process(
             command: $commands,

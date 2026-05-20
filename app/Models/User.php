@@ -334,7 +334,7 @@ class User extends Authenticatable implements SendsEmail
         }
 
         // Check if user actually belongs to this team
-        if (! $this->teams()->whereKey($sessionTeamId)->exists()) {
+        if (! $this->teams->contains('id', $sessionTeamId)) {
             session()->forget('currentTeam');
             Cache::forget('user:'.$this->id.':team:'.$sessionTeamId);
 
@@ -357,7 +357,9 @@ class User extends Authenticatable implements SendsEmail
             return null;
         }
 
-        return $this->roleInTeam($current->id);
+        $team = $this->teams->where('id', $current->id)->first();
+
+        return data_get($team, 'pivot.role');
     }
 
     /**
@@ -365,7 +367,7 @@ class User extends Authenticatable implements SendsEmail
      */
     public function roleInTeam(int $teamId): ?string
     {
-        $team = $this->teams()->whereKey($teamId)->first();
+        $team = $this->teams->where('id', $teamId)->first();
 
         return data_get($team, 'pivot.role');
     }
@@ -375,7 +377,7 @@ class User extends Authenticatable implements SendsEmail
      */
     public function isAdminOfTeam(int $teamId): bool
     {
-        $team = $this->teams()->whereKey($teamId)->first();
+        $team = $this->teams->where('id', $teamId)->first();
 
         if (! $team) {
             return false;
@@ -392,6 +394,14 @@ class User extends Authenticatable implements SendsEmail
      */
     public function canAccessSystemResources(): bool
     {
+        // Check if user is member of root team
+        $rootTeam = $this->teams->where('id', 0)->first();
+
+        if (! $rootTeam) {
+            return false;
+        }
+
+        // Check if user is admin or owner of root team
         return $this->isAdminOfTeam(0);
     }
 

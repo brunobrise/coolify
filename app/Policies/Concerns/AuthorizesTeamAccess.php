@@ -16,7 +16,7 @@ trait AuthorizesTeamAccess
             return $user->canAccessSystemResources();
         }
 
-        return $user->teams->contains('id', $teamId);
+        return $user->teams()->whereKey($teamId)->exists();
     }
 
     protected function canManageTeam(User $user, ?int $teamId): bool
